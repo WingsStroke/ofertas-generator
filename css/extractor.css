@@ -265,3 +265,54 @@ pre {
 .cc-group { display: inline-block; background: #dcfce7; color: #166534; padding: 0.1rem 0.2rem; border-radius: 4px; font-size: 0.65rem; margin-right: 2px;}
 
 .bolsa-card { background: white; border-left: 4px solid #f59e0b; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: grab; }
+
+/* ==========================================
+   SISTEMA DE GRUPOS SUPERPUESTOS (STACKS)
+   ========================================== */
+.stack-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    margin: 2px;
+    z-index: 15;
+}
+
+/* Estado colapsado: oculta todas las tarjetas excepto la primera (que es el 2do hijo del contenedor después del badge) */
+.stack-container.collapsed > .clase-card:not(:nth-child(2)) {
+    display: none;
+}
+
+.stack-container > .clase-card {
+    margin: 0;
+    flex: 1;
+    min-width: 0; /* Evita que el flexbox se desborde */
+}
+
+.stack-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f59e0b;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 12px;
+    cursor: pointer;
+    z-index: 20;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    border: 1px solid white;
+    transition: 0.2s;
+}
+
+.stack-badge:hover { 
+    background: #d97706; 
+}
+
+/* Truco para Drag & Drop: Ignorar puntero en tarjetas mientras se arrastra */
+body.is-dragging .clase-card,
+body.is-dragging .bolsa-card,
+body.is-dragging .stack-container {
+    pointer-events: none;
+}

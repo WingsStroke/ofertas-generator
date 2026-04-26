@@ -137,7 +137,7 @@ function seleccionarTab(numSemestre) {
 }
 
 // ==========================================
-// EL MOTOR DEL GRID (COORDENADAS)
+// EL MOTOR DEL GRID (COORDENADAS Y SUPERPOSICIÓN)
 // ==========================================
 function parseTime(timeStr) {
     let [h, m] = timeStr.split(':').map(Number);
@@ -209,6 +209,9 @@ function renderGrid(numSemestre) {
         });
     });
 
+    // SISTEMA DE MAPEO PARA DETECTAR SUPERPOSICIONES
+    const renderMap = {};
+
     semestre.asignaturas.forEach((asig, aIdx) => {
         asig.grupos.forEach((grupo, gIdx) => {
             if (grupo.horarios.length === 0) {
@@ -221,26 +224,76 @@ function renderGrid(numSemestre) {
 
                     if (endRow <= startRow) endRow = startRow + 1;
 
-                    let card = crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx);
-                    card.style.gridColumn = `${colIdx} / ${colIdx + 1}`;
-                    card.style.gridRow = `${startRow} / ${endRow}`;
-                    grid.appendChild(card);
+                    // Clave única basada en coordenadas
+                    let key = `${colIdx}_${startRow}_${endRow}`;
+                    if(!renderMap[key]) renderMap[key] = [];
+                    renderMap[key].push({ asig, grupo, horario, aIdx, gIdx, hIdx });
                 });
             }
         });
     });
 
+    // DIBUJAR TARJETAS Y CONTENEDORES
+    for (let key in renderMap) {
+        let items = renderMap[key];
+        let [colIdx, startRow, endRow] = key.split('_').map(Number);
+
+        if (items.length === 1) {
+            let item = items[0];
+            let card = crearTarjetaGrid(item.asig, item.grupo, item.horario, item.aIdx, item.gIdx, item.hIdx);
+            card.style.gridColumn = `${colIdx} / ${colIdx + 1}`;
+            card.style.gridRow = `${startRow} / ${endRow}`;
+            grid.appendChild(card);
+        } else {
+            // Se detectó superposición: Crear Contenedor
+            let stackContainer = document.createElement('div');
+            stackContainer.className = 'stack-container collapsed';
+            stackContainer.style.gridColumn = `${colIdx} / ${colIdx + 1}`;
+            stackContainer.style.gridRow = `${startRow} / ${endRow}`;
+
+            let badge = document.createElement('div');
+            badge.className = 'stack-badge';
+            badge.innerText = `+${items.length - 1} Grupo(s)`;
+            badge.title = "Clic para expandir superpuestos";
+            badge.onclick = (e) => {
+                e.stopPropagation();
+                let isCollapsed = stackContainer.classList.contains('collapsed');
+                if (isCollapsed) {
+                    stackContainer.classList.remove('collapsed');
+                    badge.innerText = 'Ocultar';
+                } else {
+                    stackContainer.classList.add('collapsed');
+                    badge.innerText = `+${items.length - 1} Grupo(s)`;
+                }
+            };
+            stackContainer.appendChild(badge);
+
+            items.forEach(item => {
+                let card = crearTarjetaGrid(item.asig, item.grupo, item.horario, item.aIdx, item.gIdx, item.hIdx);
+                stackContainer.appendChild(card);
+            });
+
+            grid.appendChild(stackContainer);
+        }
+    }
+
     gridContainer.appendChild(grid);
 }
 
 // ==========================================
-// CREACIÓN DE TARJETAS Y EVENTOS
+// CREACIÓN DE TARJETAS Y EVENTOS DRAG
 // ==========================================
 function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
     const card = document.createElement('div');
     card.className = 'clase-card';
     card.draggable = true;
-    card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx})); };
+    
+    // Iniciar el estado de arrastre
+    card.ondragstart = (e) => { 
+        e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx})); 
+        document.body.classList.add('is-dragging'); // Ocultar interactividad a otras tarjetas
+    };
+    card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
         <div class="cc-header">
@@ -261,7 +314,12 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
     const card = document.createElement('div');
     card.className = 'bolsa-card';
     card.draggable = true;
-    card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx: -1})); };
+    
+    card.ondragstart = (e) => { 
+        e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx: -1})); 
+        document.body.classList.add('is-dragging');
+    };
+    card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
         <div class="cc-name"><span class="cc-group">${grupo.grupo}</span> ${asig.nombre}</div>
@@ -273,12 +331,14 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
 // ==========================================
 // LÓGICA DE DRAG & DROP Y EDICIÓN
 // ==========================================
+
 function handleDragOver(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
 function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
 function dropToGrid(ev) {
     ev.preventDefault();
     ev.currentTarget.classList.remove('drag-over');
+    document.body.classList.remove('is-dragging'); // Remover flag por seguridad
     
     const dataStr = ev.dataTransfer.getData('text/plain');
     if(!dataStr) return;
@@ -289,7 +349,7 @@ function dropToGrid(ev) {
 
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
 
-    guardarEstado(); // Guardar fotografía antes de modificar
+    guardarEstado();
 
     if (hIdx === -1) {
         let startIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
@@ -314,6 +374,7 @@ function dropToGrid(ev) {
 
 function dropToBolsa(ev) {
     ev.preventDefault();
+    document.body.classList.remove('is-dragging'); // Remover flag por seguridad
     const dataStr = ev.dataTransfer.getData('text/plain');
     if(!dataStr) return;
     const {aIdx, gIdx, hIdx} = JSON.parse(dataStr);
