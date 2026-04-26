@@ -4,15 +4,15 @@ let draftData = null;
 let currentTabSemestre = null;
 
 const BLOQUES_HORARIOS = [
-    { id: "07:00", label: "07:00 - 07:50" }, { id: "07:50", label: "07:50 - 08:40" },
-    { id: "08:40", label: "08:40 - 09:30" }, { id: "09:30", label: "09:30 - 10:20" },
-    { id: "10:20", label: "10:20 - 11:10" }, { id: "11:10", label: "11:10 - 12:00" },
-    { id: "12:00", label: "12:00 - 12:50" }, { id: "13:00", label: "13:00 - 13:50" },
-    { id: "13:50", label: "13:50 - 14:40" }, { id: "14:40", label: "14:40 - 15:30" },
-    { id: "15:30", label: "15:30 - 16:20" }, { id: "16:20", label: "16:20 - 17:10" },
-    { id: "17:10", label: "17:10 - 18:00" }, { id: "18:00", label: "18:00 - 18:50" },
-    { id: "18:50", label: "18:50 - 19:40" }, { id: "19:40", label: "19:40 - 20:30" },
-    { id: "20:30", label: "20:30 - 21:20" }, { id: "21:20", label: "21:20 - 22:10" }
+    { id: "07:00", next: "07:50" }, { id: "07:50", next: "08:40" },
+    { id: "08:40", next: "09:30" }, { id: "09:30", next: "10:20" },
+    { id: "10:20", next: "11:10" }, { id: "11:10", next: "12:00" },
+    { id: "12:00", next: "12:50" }, { id: "13:00", next: "13:50" },
+    { id: "13:50", next: "14:40" }, { id: "14:40", next: "15:30" },
+    { id: "15:30", next: "16:20" }, { id: "16:20", next: "17:10" },
+    { id: "17:10", next: "18:00" }, { id: "18:00", next: "18:50" },
+    { id: "18:50", next: "19:40" }, { id: "19:40", next: "20:30" },
+    { id: "20:30", next: "21:20" }, { id: "21:20", next: "22:10" }
 ];
 const DIAS = ["L", "M", "W", "J", "V", "S"];
 const NOMBRES_DIAS = {"L":"Lunes", "M":"Martes", "W":"Miércoles", "J":"Jueves", "V":"Viernes", "S":"Sábado"};
@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cerrarModal').addEventListener('click', cerrarEditor);
     document.getElementById('btnAplicarCambios').addEventListener('click', aplicarCambios);
 
-    // Bolsa de asignaturas (Dropzone)
     const bolsa = document.getElementById('bolsaContainer');
     bolsa.ondragover = handleDragOver;
     bolsa.ondragleave = handleDragLeave;
@@ -49,11 +48,14 @@ function procesarArchivo() {
 
         jsonGeneradoGlobal = resultado;
         document.getElementById('actionButtons').style.display = 'flex';
-        alert("Extracción exitosa. Abre el Editor Visual para revisar.");
+        alert("Extracción exitosa. Abre el Editor Visual para auditar.");
     };
     reader.readAsArrayBuffer(file);
 }
 
+// ==========================================
+// CONTROL DEL ESTADO Y TABS
+// ==========================================
 function abrirEditor() {
     if (!jsonGeneradoGlobal) return;
     draftData = JSON.parse(JSON.stringify(jsonGeneradoGlobal));
@@ -65,7 +67,7 @@ function abrirEditor() {
 }
 
 function cerrarEditor() {
-    if(confirm("¿Seguro que deseas salir? Los cambios no aplicados se perderán.")){
+    if(confirm("¿Salir sin guardar?")){
         document.getElementById('editorModal').classList.remove('active');
         document.body.style.overflow = '';
         draftData = null; 
@@ -74,7 +76,7 @@ function cerrarEditor() {
 
 function aplicarCambios() {
     jsonGeneradoGlobal = JSON.parse(JSON.stringify(draftData));
-    alert("Cambios aplicados con éxito. Ya puedes descargar el JSON curado.");
+    alert("✅ Cambios aplicados al JSON.");
     document.getElementById('editorModal').classList.remove('active');
     document.body.style.overflow = '';
 }
@@ -82,11 +84,9 @@ function aplicarCambios() {
 function renderTabs() {
     const container = document.getElementById('tabsContainer');
     container.innerHTML = '';
-
     draftData.semestres.forEach(sem => {
         let conflictos = 0;
         sem.asignaturas.forEach(a => a.grupos.forEach(g => { if(g.horarios.length === 0) conflictos++; }));
-
         const btn = document.createElement('button');
         btn.className = 'tab-btn';
         btn.innerHTML = `Sem ${sem.numero} ${conflictos > 0 ? `<span class="tab-badge">${conflictos}</span>` : ''}`;
@@ -103,190 +103,226 @@ function seleccionarTab(numSemestre) {
     renderGrid(numSemestre);
 }
 
-function renderGrid(numSemestre) {
-    const grid = document.getElementById('gridContainer');
-    const bolsa = document.getElementById('bolsaContainer');
-    grid.innerHTML = ''; bolsa.innerHTML = '';
-
-    const semestre = draftData.semestres.find(s => s.numero === numSemestre);
-    if(!semestre) return;
-
-    // Crear la estructura de la Tabla
-    const table = document.createElement('table');
-    table.className = 'timetable';
-    
-    let thead = '<thead><tr><th>Hora</th>';
-    DIAS.forEach(d => thead += `<th>${NOMBRES_DIAS[d]}</th>`);
-    thead += '</tr></thead>';
-    table.innerHTML = thead;
-
-    const tbody = document.createElement('tbody');
-    const mapHorarios = {};
-    
-    BLOQUES_HORARIOS.forEach(b => {
-        mapHorarios[b.id] = {};
-        DIAS.forEach(d => mapHorarios[b.id][d] = []);
-    });
-
-    // Mapear asignaturas
-    semestre.asignaturas.forEach((asig, asigIdx) => {
-        asig.grupos.forEach((grupo, grupoIdx) => {
-            if (grupo.horarios.length === 0) {
-                bolsa.appendChild(crearTarjeta(asig, grupo, null, asigIdx, grupoIdx, -1));
-            } else {
-                grupo.horarios.forEach((horario, hIdx) => {
-                    // Buscar el bloque más cercano a la hora de inicio
-                    let targetBlock = BLOQUES_HORARIOS.find(b => b.id === horario.inicio);
-                    if(!targetBlock) {
-                        let hMins = parseTime(horario.inicio);
-                        let minDiff = Infinity;
-                        BLOQUES_HORARIOS.forEach(b => {
-                            let diff = Math.abs(parseTime(b.id) - hMins);
-                            if(diff < minDiff) { minDiff = diff; targetBlock = b; }
-                        });
-                    }
-                    if(targetBlock && mapHorarios[targetBlock.id][horario.dia]) {
-                        mapHorarios[targetBlock.id][horario.dia].push(crearTarjeta(asig, grupo, horario, asigIdx, grupoIdx, hIdx));
-                    }
-                });
-            }
-        });
-    });
-
-    // Dibujar Filas de la Tabla
-    BLOQUES_HORARIOS.forEach(b => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="time-label">${b.label}</td>`;
-        DIAS.forEach(d => {
-            const td = document.createElement('td');
-            td.className = 'time-cell dropzone';
-            td.dataset.dia = d;
-            td.dataset.inicio = b.id;
-            td.ondragover = handleDragOver;
-            td.ondragleave = handleDragLeave;
-            td.ondrop = dropToGrid;
-
-            mapHorarios[b.id][d].forEach(card => td.appendChild(card));
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-
-    table.appendChild(tbody);
-    grid.appendChild(table);
-}
-
 // ==========================================
-// TARJETAS Y EVENTOS DRAG & DROP
+// EL MOTOR DEL GRID (COORDENADAS)
 // ==========================================
-function crearTarjeta(asig, grupo, horario, aIdx, gIdx, hIdx) {
-    const card = document.createElement('div');
-    card.className = 'clase-card';
-    card.draggable = true;
-    card.ondragstart = (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx}));
-    };
-
-    const tiempoTexto = horario ? `${horario.inicio} - ${horario.fin}` : 'Sin Horario';
-    
-    card.innerHTML = `
-        <div class="cc-time"><span>${tiempoTexto}</span></div>
-        <div class="cc-name" onclick="editarTexto('nombre', ${currentTabSemestre}, ${aIdx}, ${gIdx}, event)">
-            <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
-        </div>
-        <div class="cc-prof" onclick="editarTexto('profesor', ${currentTabSemestre}, ${aIdx}, ${gIdx}, event)">
-            ${grupo.profesor}
-        </div>
-    `;
-    return card;
-}
-
-function handleDragOver(ev) {
-    ev.preventDefault();
-    ev.currentTarget.classList.add('drag-over');
-}
-
-function handleDragLeave(ev) {
-    ev.currentTarget.classList.remove('drag-over');
-}
-
 function parseTime(timeStr) {
     let [h, m] = timeStr.split(':').map(Number);
     return (h * 60) + m;
 }
 
-function formatTime(mins) {
-    let h = Math.floor(mins / 60);
-    let m = mins % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+function getRowForTime(timeStr) {
+    // Busca la hora exacta en los inicios
+    let index = BLOQUES_HORARIOS.findIndex(b => b.id === timeStr);
+    if (index !== -1) return index + 2; // +2 porque la fila 1 es el header
+    
+    // Busca si es una hora de fin exacta
+    let prevIndex = BLOQUES_HORARIOS.findIndex(b => b.next === timeStr);
+    if (prevIndex !== -1) return prevIndex + 3;
+    
+    // Aproximación si escribieron una hora rara (ej 07:15)
+    let tMins = parseTime(timeStr);
+    let closestRow = 2;
+    let minDiff = Infinity;
+    BLOQUES_HORARIOS.forEach((b, i) => {
+        let diff = Math.abs(parseTime(b.id) - tMins);
+        if (diff < minDiff) { minDiff = diff; closestRow = i + 2; }
+    });
+    return closestRow;
 }
+
+function renderGrid(numSemestre) {
+    const gridContainer = document.getElementById('gridContainer');
+    const bolsa = document.getElementById('bolsaContainer');
+    gridContainer.innerHTML = ''; bolsa.innerHTML = '';
+
+    const semestre = draftData.semestres.find(s => s.numero === numSemestre);
+    if(!semestre) return;
+
+    // Crear Contenedor CSS Grid
+    const grid = document.createElement('div');
+    grid.className = 'timetable-grid';
+
+    // 1. Dibujar Cabeceras de Días
+    let corner = document.createElement('div');
+    corner.className = 'timetable-header';
+    corner.style.gridColumn = '1 / 2'; corner.style.gridRow = '1 / 2';
+    corner.innerText = 'Hora / Día';
+    grid.appendChild(corner);
+
+    DIAS.forEach((d, i) => {
+        let header = document.createElement('div');
+        header.className = 'timetable-header';
+        header.style.gridColumn = `${i + 2} / ${i + 3}`;
+        header.style.gridRow = '1 / 2';
+        header.innerText = NOMBRES_DIAS[d];
+        grid.appendChild(header);
+    });
+
+    // 2. Dibujar Fondo del Grid (Celdas para soltar)
+    BLOQUES_HORARIOS.forEach((b, r) => {
+        let timeLabel = document.createElement('div');
+        timeLabel.className = 'timetable-time';
+        timeLabel.style.gridColumn = '1 / 2';
+        timeLabel.style.gridRow = `${r + 2} / ${r + 3}`;
+        timeLabel.innerText = `${b.id} - ${b.next}`;
+        grid.appendChild(timeLabel);
+
+        DIAS.forEach((d, c) => {
+            let cell = document.createElement('div');
+            cell.className = 'timetable-cell dropzone';
+            cell.style.gridColumn = `${c + 2} / ${c + 3}`;
+            cell.style.gridRow = `${r + 2} / ${r + 3}`;
+            cell.dataset.dia = d;
+            cell.dataset.inicio = b.id;
+            cell.ondragover = handleDragOver;
+            cell.ondragleave = handleDragLeave;
+            cell.ondrop = dropToGrid;
+            grid.appendChild(cell);
+        });
+    });
+
+    // 3. Ubicar las Tarjetas usando Coordenadas (grid-row y grid-column)
+    semestre.asignaturas.forEach((asig, aIdx) => {
+        asig.grupos.forEach((grupo, gIdx) => {
+            if (grupo.horarios.length === 0) {
+                bolsa.appendChild(crearTarjetaBolsa(asig, grupo, aIdx, gIdx));
+            } else {
+                grupo.horarios.forEach((horario, hIdx) => {
+                    let startRow = getRowForTime(horario.inicio);
+                    let endRow = getRowForTime(horario.fin);
+                    let colIdx = DIAS.indexOf(horario.dia) + 2;
+
+                    // Si el extractor falló y puso fin antes que inicio, forzamos mínimo 1 bloque
+                    if (endRow <= startRow) endRow = startRow + 1;
+
+                    let card = crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx);
+                    card.style.gridColumn = `${colIdx} / ${colIdx + 1}`;
+                    card.style.gridRow = `${startRow} / ${endRow}`;
+                    grid.appendChild(card);
+                });
+            }
+        });
+    });
+
+    gridContainer.appendChild(grid);
+}
+
+// ==========================================
+// CREACIÓN DE TARJETAS Y EVENTOS
+// ==========================================
+function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
+    const card = document.createElement('div');
+    card.className = 'clase-card';
+    card.draggable = true;
+    card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx})); };
+
+    card.innerHTML = `
+        <div class="cc-header">
+            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">🕒 ${horario.inicio}-${horario.fin}</span>
+            <span class="cc-delete" title="Enviar a Bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">✖</span>
+        </div>
+        <div class="cc-name" onclick="editarTexto('nombre', ${aIdx}, ${gIdx}, event)">
+            <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
+        </div>
+        <div class="cc-prof" onclick="editarTexto('profesor', ${aIdx}, ${gIdx}, event)">
+            👨‍🏫 ${grupo.profesor}
+        </div>
+    `;
+    return card;
+}
+
+function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
+    const card = document.createElement('div');
+    card.className = 'bolsa-card';
+    card.draggable = true;
+    card.ondragstart = (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx: -1})); };
+
+    card.innerHTML = `
+        <div class="cc-name"><span class="cc-group">${grupo.grupo}</span> ${asig.nombre}</div>
+        <div class="cc-prof">👨‍🏫 ${grupo.profesor}</div>
+    `;
+    return card;
+}
+
+// ==========================================
+// LÓGICA DE DRAG & DROP Y EDICIÓN
+// ==========================================
+function handleDragOver(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
 function dropToGrid(ev) {
     ev.preventDefault();
     ev.currentTarget.classList.remove('drag-over');
-    const data = JSON.parse(ev.dataTransfer.getData('text/plain'));
-    const {aIdx, gIdx, hIdx} = data;
+    const {aIdx, gIdx, hIdx} = JSON.parse(ev.dataTransfer.getData('text/plain'));
+    const newDia = ev.currentTarget.dataset.dia;
+    const newInicio = ev.currentTarget.dataset.inicio;
 
-    const targetCell = ev.currentTarget;
-    const newDia = targetCell.dataset.dia;
-    const newInicio = targetCell.dataset.inicio;
-
-    const semestre = draftData.semestres.find(s => s.numero === currentTabSemestre);
-    const grupo = semestre.asignaturas[aIdx].grupos[gIdx];
+    const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
 
     if (hIdx === -1) {
-        // Viene de la bolsa, asignamos 50 min por defecto
-        grupo.horarios.push({
-            dia: newDia,
-            inicio: newInicio,
-            fin: formatTime(parseTime(newInicio) + 50),
-            jornada: parseTime(newInicio) >= 1080 ? "nocturna" : "diurna"
-        });
+        // Viene de bolsa: Damos 2 bloques (1h 40m) por defecto
+        let startIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
+        let finAprox = BLOQUES_HORARIOS[startIndex + 1] ? BLOQUES_HORARIOS[startIndex + 1].next : "22:10";
+        grupo.horarios.push({ dia: newDia, inicio: newInicio, fin: finAprox, jornada: parseTime(newInicio) >= 1080 ? "nocturna" : "diurna" });
     } else {
-        // Viene del grid, conservamos su duración
+        // Viene del grid: Mantiene su duración y se ajusta a la nueva hora
         let horario = grupo.horarios[hIdx];
-        let duracion = parseTime(horario.fin) - parseTime(horario.inicio);
-        if(duracion <= 0) duracion = 50; 
+        let durationBlocks = getRowForTime(horario.fin) - getRowForTime(horario.inicio);
         
         horario.dia = newDia;
         horario.inicio = newInicio;
-        horario.fin = formatTime(parseTime(newInicio) + duracion);
+        
+        let newStartIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
+        let endIndex = newStartIndex + durationBlocks - 1;
+        if (endIndex >= BLOQUES_HORARIOS.length) endIndex = BLOQUES_HORARIOS.length - 1;
+        
+        horario.fin = BLOQUES_HORARIOS[endIndex].next;
         horario.jornada = parseTime(newInicio) >= 1080 ? "nocturna" : "diurna";
     }
-    
-    renderGrid(currentTabSemestre);
-    renderTabs();
+    renderGrid(currentTabSemestre); renderTabs();
 }
 
 function dropToBolsa(ev) {
     ev.preventDefault();
-    ev.currentTarget.classList.remove('drag-over');
-    const data = JSON.parse(ev.dataTransfer.getData('text/plain'));
-    const {aIdx, gIdx, hIdx} = data;
-
-    if (hIdx !== -1) {
-        const semestre = draftData.semestres.find(s => s.numero === currentTabSemestre);
-        semestre.asignaturas[aIdx].grupos[gIdx].horarios.splice(hIdx, 1);
-        renderGrid(currentTabSemestre);
-        renderTabs();
-    }
+    const {aIdx, gIdx, hIdx} = JSON.parse(ev.dataTransfer.getData('text/plain'));
+    if (hIdx !== -1) enviarABolsa(aIdx, gIdx, hIdx, ev);
 }
 
-function editarTexto(campo, semNum, asigIdx, grupoIdx, event) {
-    event.stopPropagation(); // Evita conflictos con el Drag&Drop
-    const semestre = draftData.semestres.find(s => s.numero === semNum);
-    const asig = semestre.asignaturas[asigIdx];
-    const grupo = asig.grupos[grupoIdx];
+function enviarABolsa(aIdx, gIdx, hIdx, event) {
+    if(event) event.stopPropagation();
+    const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
+    grupo.horarios.splice(hIdx, 1);
+    renderGrid(currentTabSemestre); renderTabs();
+}
+
+// EDICIÓN MANUAL DE HORAS (Sustituye al Resize)
+function editarHora(aIdx, gIdx, hIdx, event) {
+    event.stopPropagation();
+    const horario = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx].horarios[hIdx];
+    
+    let nuevoInicio = prompt("Hora de Inicio (formato HH:MM):", horario.inicio);
+    if (!nuevoInicio) return;
+    let nuevoFin = prompt("Hora de Fin (formato HH:MM):", horario.fin);
+    if (!nuevoFin) return;
+
+    horario.inicio = nuevoInicio.trim();
+    horario.fin = nuevoFin.trim();
+    renderGrid(currentTabSemestre);
+}
+
+function editarTexto(campo, aIdx, gIdx, event) {
+    event.stopPropagation();
+    const asig = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx];
+    const grupo = asig.grupos[gIdx];
 
     const valorActual = campo === 'nombre' ? asig.nombre : grupo.profesor;
     const nuevoValor = prompt(`Editar ${campo.toUpperCase()}:`, valorActual);
 
-    if (nuevoValor !== null && nuevoValor.trim() !== "" && nuevoValor !== valorActual) {
+    if (nuevoValor && nuevoValor.trim() !== "" && nuevoValor !== valorActual) {
         if (campo === 'nombre') {
             if (asig.grupos.length > 1) {
-                const aplicarATodos = confirm(`Esta asignatura tiene ${asig.grupos.length} grupos. ¿Aplicar nombre a todos?`);
-                if (aplicarATodos) asig.nombre = nuevoValor.trim();
-                else { alert("Se modificará para toda la asignatura globalmente."); asig.nombre = nuevoValor.trim(); }
+                if (confirm(`¿Aplicar nombre a todos los ${asig.grupos.length} grupos de esta materia?`)) asig.nombre = nuevoValor.trim();
             } else { asig.nombre = nuevoValor.trim(); }
         } else if (campo === 'profesor') {
             grupo.profesor = nuevoValor.trim();
@@ -300,7 +336,7 @@ function descargarJSON() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(jsonGeneradoGlobal, null, 2));
     const nodoDescarga = document.createElement('a');
     nodoDescarga.setAttribute("href", dataStr);
-    nodoDescarga.setAttribute("download", `oferta_${new Date().getTime()}.json`);
+    nodoDescarga.setAttribute("download", `oferta_curada_${new Date().getTime()}.json`);
     document.body.appendChild(nodoDescarga);
     nodoDescarga.click();
     nodoDescarga.remove();

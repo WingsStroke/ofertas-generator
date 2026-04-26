@@ -176,38 +176,67 @@ pre {
 }
 
 /* ==========================================
-   EDITOR VISUAL EN TABLA (GRID HORARIO)
+   EDITOR VISUAL: GRID DE COORDENADAS (CSS GRID)
    ========================================== */
 .editor-modal { width: 98%; max-width: 1400px; height: 90vh; }
 .btn-success { background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-success:hover { background: #059669; }
 .header-actions { display: flex; gap: 1rem; align-items: center; }
 
-/* Tabs */
+/* Tabs y Layout */
 .tabs-bar { display: flex; background: #f1f5f9; padding: 0.5rem 1rem 0; gap: 0.5rem; overflow-x: auto; border-bottom: 2px solid #e2e8f0; }
 .tab-btn { background: #e2e8f0; border: none; padding: 0.5rem 1rem; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 600; color: #475569; width: auto; white-space: nowrap; }
 .tab-btn.active { background: white; color: var(--primary); border-top: 3px solid var(--primary); border-bottom: 2px solid white; margin-bottom: -2px; }
 .tab-badge { background: #ef4444; color: white; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 10px; margin-left: 5px; }
 
-/* Layout Grid + Bolsa */
 .editor-layout { display: flex; flex: 1; overflow: hidden; background: white; }
-.grid-board { flex: 4; overflow: auto; padding: 1rem; background: #f8fafc; }
 .bolsa-sidebar { flex: 1; min-width: 250px; max-width: 300px; background: #f1f5f9; border-left: 2px solid #e2e8f0; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto;}
 .bolsa-dropzone { flex: 1; background: #e2e8f0; border-radius: 8px; padding: 0.5rem; min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem;}
 
-/* TABLA DE HORARIOS (Timetable) */
-.timetable { width: 100%; min-width: 900px; border-collapse: collapse; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.timetable th { background: #cbd5e1; color: #1e293b; font-weight: 600; padding: 0.75rem; border: 1px solid #94a3b8; position: sticky; top: 0; z-index: 2; }
-.timetable .time-label { background: #f1f5f9; font-weight: 600; text-align: center; border: 1px solid #94a3b8; width: 120px; position: sticky; left: 0; z-index: 1; }
-.time-cell { border: 1px solid #e2e8f0; padding: 0.25rem; vertical-align: top; width: 14%; min-height: 80px; transition: background 0.2s; }
-.time-cell.drag-over { background: #dbeafe; border: 2px dashed var(--primary); }
+/* EL CSS GRID (La magia del estiramiento visual) */
+.timetable-wrapper { flex: 4; overflow: auto; background: #f8fafc; padding: 1rem; }
+.timetable-grid {
+    display: grid;
+    grid-template-columns: 100px repeat(6, 1fr);
+    grid-template-rows: 40px repeat(18, 60px); /* 60px de alto por cada bloque de 50min */
+    gap: 1px;
+    background-color: #cbd5e1; /* Color de las líneas del grid */
+    border: 1px solid #94a3b8;
+    min-width: 900px;
+    position: relative;
+}
 
-/* Tarjetas de Clases (Draggables) */
-.clase-card { background: white; border-left: 4px solid var(--primary); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.15); cursor: grab; }
-.clase-card:active { cursor: grabbing; opacity: 0.8; transform: scale(0.98); }
-.cc-time { font-weight: bold; color: #1e293b; font-size: 0.75rem; margin-bottom: 0.2rem; }
-.cc-name { font-size: 0.85rem; font-weight: 600; color: #3b82f6; cursor: text; line-height: 1.2; margin-bottom: 0.2rem; }
+.timetable-header { background: #e2e8f0; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #94a3b8; }
+.timetable-time { background: #f1f5f9; font-size: 0.75rem; font-weight: bold; color: #475569; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 10; border-right: 1px solid #94a3b8; }
+.timetable-cell { background: white; transition: background 0.2s; }
+.timetable-cell.drag-over { background: #dbeafe; }
+
+/* Tarjetas Estirables */
+.clase-card {
+    background: white;
+    border-left: 4px solid var(--primary);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    cursor: grab;
+    position: relative;
+    z-index: 15; /* Por encima de las celdas del fondo */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 2px;
+    transition: transform 0.1s;
+}
+.clase-card:active { cursor: grabbing; transform: scale(0.98); opacity: 0.9; }
+.cc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
+.cc-time { font-weight: bold; color: #1e293b; font-size: 0.7rem; cursor: pointer; background: #f1f5f9; padding: 2px 4px; border-radius: 3px; }
+.cc-time:hover { background: #e2e8f0; color: var(--primary); }
+.cc-delete { color: #ef4444; cursor: pointer; font-weight: bold; font-size: 0.8rem; padding: 0 4px; }
+.cc-delete:hover { background: #fee2e2; border-radius: 3px; }
+.cc-name { font-size: 0.8rem; font-weight: 600; color: #3b82f6; cursor: pointer; line-height: 1.1; margin-bottom: 0.2rem; }
 .cc-name:hover { text-decoration: underline; }
-.cc-prof { font-size: 0.75rem; color: #64748b; cursor: text; }
+.cc-prof { font-size: 0.7rem; color: #64748b; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc-prof:hover { color: #1e293b; background: #f1f5f9; }
-.cc-group { display: inline-block; background: #dcfce7; color: #166534; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.7rem; margin-right: 3px;}
+.cc-group { display: inline-block; background: #dcfce7; color: #166534; padding: 0.1rem 0.2rem; border-radius: 4px; font-size: 0.65rem; margin-right: 2px;}
+
+.bolsa-card { background: white; border-left: 4px solid #f59e0b; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: grab; }
