@@ -11,81 +11,131 @@ const AdaptadorSistemas = {
             if (filaInicio === -1) return;
 
             let semestreNum = indexHoja; 
+            let pasoMediodia = false;
 
             for (let i = filaInicio + 1; i < matriz.length; i++) {
                 const fila = matriz[i];
-                const rangoHora = fila[0]; 
-                if (!rangoHora || !rangoHora.includes("-")) continue;
+                let rangoHora = fila[0]; 
+                if (!rangoHora || typeof rangoHora !== 'string' || !rangoHora.includes("-")) continue;
 
-                const [inicio, fin] = rangoHora.split("-").map(h => h.trim().replace(".", ":")); 
+                // ==========================================
+                // 1. CONVERSIÓN INTELIGENTE AM/PM
+                // ==========================================
+                let [strInicio, strFin] = rangoHora.split("-").map(h => h.replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
+                
+                let horaInicioRaw = parseInt(strInicio.split(":")[0]);
+                let minInicio = strInicio.split(":")[1] || "00";
+                let horaFinRaw = parseInt(strFin.split(":")[0]);
+                let minFin = strFin.split(":")[1] || "00";
 
+                // Si detectamos las 12, o hay un salto a las 1, 2, 3... es la tarde
+                if (horaInicioRaw === 12 || (horaInicioRaw >= 1 && horaInicioRaw <= 6)) pasoMediodia = true;
+
+                let horaInicio = horaInicioRaw;
+                let horaFin = horaFinRaw;
+
+                if (pasoMediodia && horaInicioRaw >= 1 && horaInicioRaw <= 11) horaInicio += 12;
+                if (horaFinRaw >= 1 && horaFinRaw <= 11 && (pasoMediodia || horaInicioRaw >= 10)) horaFin += 12;
+
+                let inicio = `${horaInicio.toString().padStart(2, '0')}:${minInicio}`;
+                let fin = `${horaFin.toString().padStart(2, '0')}:${minFin}`;
+                let jornada = horaInicio >= 18 ? "nocturna" : "diurna";
+
+                // ==========================================
+                // 2. EXTRACCIÓN DE CELDAS Y LIMPIEZA
+                // ==========================================
                 for (let col = 1; col <= 5; col++) {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    // CORRECCIÓN 1: Convertir saltos de línea en espacios para no romper los nombres
                     let textoCelda = celda.toString().replace(/\n/g, " ");
-                    
-                    // Separar solo si hay guiones largos (---) que indican múltiples materias
-                    const bloquesClase = textoCelda.split(/---|- - -/);
+                    // Separamos solo si hay 3 o más guiones seguidos (cuando hay múltiples materias)
+                    const bloquesClase = textoCelda.split(/-{3,}/);
 
                     bloquesClase.forEach(bloque => {
-                        // CORRECCIÓN 3: Regex mejorado. Busca los primeros paréntesis que tengan máximo 3 caracteres alfanuméricos
-                        const match = bloque.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(.*)/i);
+                        let textoLimpio = bloque.replace(/\s+/g, " ").trim();
+                        if (textoLimpio.length < 5) return;
+
+                        // Filtro de ruido: Ignoramos notas larguísimas de la administración
+                        if (textoLimpio.toLowerCase().includes("sugerido") || textoLimpio.split(" ").length > 12) return;
                         
-                        if (match) {
-                            const nombre = match[1].replace(/-/g, "").trim(); // Limpiamos guiones huérfanos
-                            const grupoStr = match[2].trim();
-                            const docenteUbicacion = match[3] ? match[3].replace(/^-/, "").trim() : "Por definir";
-                            
-                            const idMateria = normalizarID(nombre);
-                            const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
+                        // Limpiamos los textos basura anexados al final ("En este grupo se deben...")
+                        textoLimpio = textoLimpio.split(/\. En este grupo|\(Sólo debe escoger/i)[0].trim();
 
-                            if (!asignaturasFlat[idMateria]) {
-                                asignaturasFlat[idMateria] = {
-                                    id: idMateria,
-                                    nombre: nombre,
-                                    creditos: null,
-                                    semestre: semestreNum,
-                                    gruposMap: {}
-                                };
-                            }
+                        let nombre = "";
+                        let grupoStr = "A1";
+                        let docente = "Por definir";
 
-                            if (!asignaturasFlat[idMateria].gruposMap[idGrupo]) {
-                                asignaturasFlat[idMateria].gruposMap[idGrupo] = {
-                                    id: idGrupo,
-                                    grupo: grupoStr,
-                                    profesor: docenteUbicacion, 
-                                    ubicacion: "Ver docente", 
-                                    cupos: null,
-                                    horarios: []
-                                };
-                            }
+                        // Expresiones regulares para cazar la estructura de la materia
+                        let m1 = textoLimpio.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(?:\s*[-]*\s*(.*))?/i); // Ej: Materia (A1) - Profe
+                        let m2 = !m1 ? textoLimpio.match(/(.*?)\s*-\s*Grupo\s*([A-Z0-9]{1,3})(?:\s*[-]*\s*(.*))?/i) : null; // Ej: Materia - Grupo A1
+                        let m3 = !m1 && !m2 ? textoLimpio.match(/(.*?)\s*-\s*([A-Z][0-9]{1,2})(?:\s*[-]*\s*(.*))?/i) : null; // Ej: Materia - A1 - Profe
 
-                            asignaturasFlat[idMateria].gruposMap[idGrupo].horarios.push({
-                                dia: obtenerDiaLetra(col),
-                                inicio: inicio,
-                                fin: fin,
-                                jornada: parseInt(inicio.split(":")[0]) >= 18 ? "nocturna" : "diurna"
-                            });
+                        if (m1) {
+                            nombre = m1[1]; grupoStr = m1[2]; docente = m1[3] || "";
+                        } else if (m2) {
+                            nombre = m2[1]; grupoStr = m2[2]; docente = m2[3] || "";
+                        } else if (m3) {
+                            nombre = m3[1]; grupoStr = m3[2]; docente = m3[3] || "";
+                        } else {
+                            // CASO 4 SALVAVIDAS: Materias sin grupo (Ej. "Gobernanza de TI - Javier Pinedo")
+                            let partes = textoLimpio.split("-");
+                            nombre = partes[0];
+                            if (partes.length > 1) docente = partes.slice(1).join("-");
+                            grupoStr = "A1"; 
                         }
+
+                        nombre = nombre.replace(/^[-_]/g, "").trim();
+                        docente = docente.replace(/^-/, "").trim() || "Por definir";
+
+                        if (nombre.length < 4) return;
+
+                        const idMateria = normalizarID(nombre);
+                        const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
+
+                        // Inyección al JSON
+                        if (!asignaturasFlat[idMateria]) {
+                            asignaturasFlat[idMateria] = {
+                                id: idMateria,
+                                nombre: nombre,
+                                creditos: null,
+                                semestre: semestreNum,
+                                gruposMap: {}
+                            };
+                        }
+
+                        if (!asignaturasFlat[idMateria].gruposMap[idGrupo]) {
+                            asignaturasFlat[idMateria].gruposMap[idGrupo] = {
+                                id: idGrupo,
+                                grupo: grupoStr,
+                                profesor: docente, 
+                                ubicacion: "Ver docente", 
+                                cupos: null,
+                                horarios: []
+                            };
+                        }
+
+                        asignaturasFlat[idMateria].gruposMap[idGrupo].horarios.push({
+                            dia: obtenerDiaLetra(col),
+                            inicio: inicio,
+                            fin: fin,
+                            jornada: jornada
+                        });
                     });
                 }
             }
         });
 
-        // Aplicamos la Consolidación antes de exportar
         this.consolidarTodosLosHorarios(asignaturasFlat);
         return this.formatearJSONOficial(asignaturasFlat, nombreArchivo);
     },
 
-    // CORRECCIÓN 2: ALGORITMO DE FUSIÓN DE HORAS CONTINUAS
+    // ALGORITMO DE FUSIÓN DE HORAS CONTINUAS
     consolidarTodosLosHorarios: function(asignaturasFlat) {
         Object.values(asignaturasFlat).forEach(materia => {
             Object.values(materia.gruposMap).forEach(grupo => {
                 if (grupo.horarios.length === 0) return;
 
-                // 1. Agrupar por día
                 const porDia = {};
                 grupo.horarios.forEach(h => {
                     if (!porDia[h.dia]) porDia[h.dia] = [];
@@ -94,15 +144,12 @@ const AdaptadorSistemas = {
 
                 const horariosConsolidados = [];
 
-                // 2. Fusionar los continuos de cada día
                 for (const dia in porDia) {
-                    // Ordenamos por hora de inicio
                     let bloques = porDia[dia].sort((a, b) => a.inicio.localeCompare(b.inicio));
                     
                     let actual = bloques[0];
                     for (let i = 1; i < bloques.length; i++) {
                         let sig = bloques[i];
-                        // Si la hora de fin del actual es la hora de inicio del siguiente (fusionar)
                         if (actual.fin === sig.inicio) {
                             actual.fin = sig.fin;
                         } else {
