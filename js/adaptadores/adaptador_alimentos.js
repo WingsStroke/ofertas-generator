@@ -1,81 +1,208 @@
 // --- adaptador_alimentos.js ---
 
 const AdaptadorAlimentos = {
-    procesarHoja: function(matrizExcel, nombreSemestre) {
-        const diccionarioMaterias = {}; // Aquí guardaremos los datos de la derecha
-        const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+    procesar: function(workbook, nombreArchivo) {
+        const asignaturasFlat = {}; 
 
-        // 1. Encontrar la fila de encabezados
-        let filaInicio = matrizExcel.findIndex(fila => fila[0] && fila[0].toString().toUpperCase().includes("HORA"));
-        if (filaInicio === -1) return null;
+        workbook.SheetNames.forEach((nombreHoja, indexHoja) => {
+            const matriz = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja], {header: 1});
+            
+            let filaInicio = matriz.findIndex(fila => fila[0] && fila[0].toString().toUpperCase().includes("HORA"));
+            if (filaInicio === -1) return;
 
-        // ==========================================
-        // FASE 1: LEER TABLA DERECHA (Base de datos)
-        // ==========================================
-        // Asumimos que la columna 7 (H) es el "NOMBRE ASIGNATURA" y la 10 (K) es el "GRUPO"
-        for (let i = filaInicio + 1; i < matrizExcel.length; i++) {
-            const fila = matrizExcel[i];
-            const nombre = fila[7];
-            const grupo = fila[10];
-            const docente = fila[11];
-            const codigo = fila[9];
+            let semestreNum = indexHoja; 
 
-            if (nombre && grupo) {
-                // Creamos la llave única, ej: "QUIMICA_A1"
-                const llaveUnica = `${nombre.toString().trim().toUpperCase()}_${grupo.toString().trim()}`;
-                diccionarioMaterias[llaveUnica] = {
-                    nombre: nombre,
-                    codigo: codigo,
-                    grupo: grupo,
-                    docente: docente || "Por definir",
-                    horarios: []
-                };
+            // ==========================================
+            // FASE 1: MEMORIZAR TABLA DERECHA (Docentes)
+            // ==========================================
+            let baseDatosDerecha = [];
+            
+            // Buscar dinámicamente en qué columnas están los datos (Por si las mueven)
+            let colNombre = 7, colGrupo = 10, colDocente = 11;
+            for(let c = 0; c < matriz[filaInicio].length; c++){
+                let txt = (matriz[filaInicio][c] || "").toString().toUpperCase();
+                if(txt.includes("NOMBRE ASIGNATURA")) colNombre = c;
+                else if(txt === "GRUPO") colGrupo = c;
+                else if(txt.includes("DOCENTE")) colDocente = c;
             }
-        }
 
-        // ==========================================
-        // FASE 2: LEER CUADRÍCULA IZQUIERDA (Horarios)
-        // ==========================================
-        for (let i = filaInicio + 1; i < matrizExcel.length; i++) {
-            const fila = matrizExcel[i];
-            const rangoHora = fila[0]; // "7:00 - 7:50"
-            if (!rangoHora) continue;
-
-            const [horaInicio, horaFin] = rangoHora.split("-").map(h => h.trim());
-
-            for (let diaIdx = 1; diaIdx <= 5; diaIdx++) {
-                const celda = fila[diaIdx];
-                if (!celda) continue;
-
-                // El reto: En Alimentos la celda dice "Quimica General Teoria - A1"
-                // Buscamos el patrón: Texto + Espacio + Guión(Opcional) + Grupo(Alfanumérico al final)
-                const match = celda.toString().match(/(.*?)\s*[-]*\s*([A-Z0-9]+)$/i);
+            for (let i = filaInicio + 1; i < matriz.length; i++) {
+                let nombreOf = matriz[i][colNombre];
+                let grupoOf = matriz[i][colGrupo];
+                let docenteOf = matriz[i][colDocente];
                 
-                if (match) {
-                    let nombreEnCuadricula = match[1].trim().toUpperCase();
-                    let grupo = match[2].trim();
-
-                    // ¡Cacería de Fuzzy Match! Buscamos si "QUIMICA GENERAL TEORIA" coincide con lo que leímos en la Fase 1
-                    let llaveEncontrada = this.buscarLlaveAproximada(diccionarioMaterias, nombreEnCuadricula, grupo);
-
-                    if (llaveEncontrada) {
-                        // Le inyectamos la hora a la materia correcta
-                        diccionarioMaterias[llaveEncontrada].horarios.push({
-                            dia: diasSemana[diaIdx-1],
-                            inicio: horaInicio,
-                            fin: horaFin
-                        });
-                    }
+                if (nombreOf && grupoOf) {
+                    baseDatosDerecha.push({
+                        nombre: nombreOf.toString().trim(),
+                        grupo: grupoOf.toString().trim(),
+                        docente: docenteOf ? docenteOf.toString().trim() : "Por definir"
+                    });
                 }
             }
-        }
 
-        return this.consolidarHorasYFormatear(diccionarioMaterias);
+            // ==========================================
+            // FASE 2: ESCANEAR CUADRÍCULA IZQUIERDA
+            // ==========================================
+            for (let i = filaInicio + 1; i < matriz.length; i++) {
+                const fila = matriz[i];
+                let rangoHora = fila[0]; 
+                if (!rangoHora || typeof rangoHora !== 'string' || !rangoHora.includes("-")) continue;
+
+                // RELOJ AM/PM INTELIGENTE (El mismo que perfeccionamos en Sistemas)
+                let [strInicio, strFin] = rangoHora.split("-").map(h => h.trim().replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
+                let horaInicioRaw = parseInt(strInicio.split(":")[0]);
+                let minInicio = strInicio.split(":")[1] || "00";
+                let horaFinRaw = parseInt(strFin.split(":")[0]);
+                let minFin = strFin.split(":")[1] || "00";
+
+                let horaInicio = horaInicioRaw;
+                let horaFin = horaFinRaw;
+
+                if (horaInicio >= 1 && horaInicio <= 6) horaInicio += 12;
+                if (horaFin >= 1 && horaFin <= 6) horaFin += 12;
+
+                let inicio = `${horaInicio.toString().padStart(2, '0')}:${minInicio}`;
+                let fin = `${horaFin.toString().padStart(2, '0')}:${minFin}`;
+                let jornada = horaInicio >= 18 ? "nocturna" : "diurna";
+
+                for (let col = 1; col <= 5; col++) {
+                    const celda = fila[col];
+                    if (!celda) continue;
+
+                    // Separar por saltos de línea (Ej. cuando hay dos clases distintas en la misma hora)
+                    const bloquesClase = celda.toString().split(/\n/);
+
+                    bloquesClase.forEach(bloque => {
+                        let textoLimpio = bloque.replace(/-/g, " ").replace(/\s+/g, " ").trim();
+                        if (textoLimpio.length < 4 || textoLimpio.toLowerCase().includes("sugerido")) return;
+
+                        // Extraer el GRUPO (En alimentos siempre es Letra+Número, ej. A1, F2, D1)
+                        let regexGrupos = /\b([A-Z][0-9])\b/g;
+                        let gruposEncontrados = [...textoLimpio.matchAll(regexGrupos)].map(m => m[1]);
+
+                        if (gruposEncontrados.length === 0) gruposEncontrados = ["A1"]; // Fallback
+
+                        // Extraer el NOMBRE BASE quitando los grupos
+                        let nombreBase = textoLimpio;
+                        gruposEncontrados.forEach(g => {
+                            nombreBase = nombreBase.replace(new RegExp("\\b" + g + "\\b", "g"), "");
+                        });
+                        nombreBase = nombreBase.trim();
+                        if (nombreBase.length < 4) return;
+
+                        // ==========================================
+                        // FASE 3: LA COLISIÓN (FUZZY MATCH)
+                        // ==========================================
+                        gruposEncontrados.forEach(grupoStr => {
+                            let nombreFinal = nombreBase;
+                            let docenteFinal = "Por definir";
+                            
+                            // Buscar en la tabla de la derecha
+                            let matchDerecha = baseDatosDerecha.find(bd => {
+                                if (bd.grupo.toUpperCase() !== grupoStr.toUpperCase()) return false;
+                                
+                                let strIzq = normalizarID(nombreBase);
+                                let strDer = normalizarID(bd.nombre);
+                                
+                                // Evitar mezclar Teoría con Laboratorio si tienen profesores distintos
+                                if (strIzq.includes("laboratorio") && strDer.includes("teoria")) return false;
+                                if (strIzq.includes("teoria") && strDer.includes("laboratorio")) return false;
+
+                                if (strIzq === strDer) return true;
+                                if (strIzq.includes(strDer) || strDer.includes(strIzq)) return true;
+                                
+                                // Coincidencia por intersección de palabras clave
+                                let palabrasIzq = strIzq.split("_").filter(w => w.length > 3);
+                                let palabrasDer = strDer.split("_").filter(w => w.length > 3);
+                                let coincidencias = palabrasIzq.filter(w => palabrasDer.includes(w));
+                                
+                                return (coincidencias.length >= 2 || (palabrasIzq.length === 1 && coincidencias.length === 1));
+                            });
+
+                            if (matchDerecha) {
+                                nombreFinal = matchDerecha.nombre; // Usamos el nombre oficial limpio
+                                docenteFinal = matchDerecha.docente;
+                            }
+
+                            // Inyectar en el JSON (Reutilizando la lógica probada de Sistemas)
+                            const idMateria = normalizarID(nombreFinal);
+                            const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
+
+                            if (!asignaturasFlat[idMateria]) {
+                                asignaturasFlat[idMateria] = {
+                                    id: idMateria, nombre: nombreFinal, creditos: null, semestre: semestreNum, gruposMap: {}
+                                };
+                            }
+
+                            if (!asignaturasFlat[idMateria].gruposMap[idGrupo]) {
+                                asignaturasFlat[idMateria].gruposMap[idGrupo] = {
+                                    id: idGrupo, grupo: grupoStr, profesor: docenteFinal, ubicacion: "Ver docente", cupos: null, horarios: []
+                                };
+                            }
+
+                            asignaturasFlat[idMateria].gruposMap[idGrupo].horarios.push({
+                                dia: obtenerDiaLetra(col), inicio: inicio, fin: fin, jornada: jornada
+                            });
+                        });
+                    });
+                }
+            }
+        });
+
+        this.consolidarTodosLosHorarios(asignaturasFlat);
+        return this.formatearJSONOficial(asignaturasFlat, nombreArchivo);
     },
 
-    buscarLlaveAproximada: function(diccionario, nombreCuadricula, grupo) {
-        // Lógica para saber que "Física Mecánica A1" en la izquierda
-        // es lo mismo que "Física Mecánica Teoria" grupo "A1" en la derecha
-        // ...
+    consolidarTodosLosHorarios: function(asignaturasFlat) {
+        Object.values(asignaturasFlat).forEach(materia => {
+            Object.values(materia.gruposMap).forEach(grupo => {
+                if (grupo.horarios.length === 0) return;
+                const porDia = {};
+                grupo.horarios.forEach(h => { if (!porDia[h.dia]) porDia[h.dia] = []; porDia[h.dia].push(h); });
+                const horariosConsolidados = [];
+                for (const dia in porDia) {
+                    let bloques = porDia[dia].sort((a, b) => a.inicio.localeCompare(b.inicio));
+                    let actual = bloques[0];
+                    for (let i = 1; i < bloques.length; i++) {
+                        let sig = bloques[i];
+                        if (actual.fin === sig.inicio) actual.fin = sig.fin;
+                        else { horariosConsolidados.push(actual); actual = sig; }
+                    }
+                    horariosConsolidados.push(actual);
+                }
+                grupo.horarios = horariosConsolidados;
+            });
+        });
+    },
+
+    formatearJSONOficial: function(asignaturasFlat, nombreArchivo) {
+        const semestresMap = {};
+        let totalAsig = 0; let totalGrupos = 0;
+
+        Object.values(asignaturasFlat).forEach(materia => {
+            const sem = materia.semestre;
+            if (!semestresMap[sem]) semestresMap[sem] = { numero: sem, asignaturas: [] };
+            const gruposArray = Object.values(materia.gruposMap);
+            totalGrupos += gruposArray.length;
+            delete materia.gruposMap; 
+            materia.grupos = gruposArray;
+            semestresMap[sem].asignaturas.push(materia);
+            totalAsig++;
+        });
+
+        const semestresArray = Object.values(semestresMap).sort((a, b) => a.numero - b.numero);
+
+        return {
+            metadata: {
+                programa: "Ingeniería de Alimentos",
+                archivo: nombreArchivo,
+                fechaProcesamiento: new Date().toISOString(),
+                totalAsignaturas: totalAsig,
+                totalGrupos: totalGrupos,
+                totalSemestres: semestresArray.length,
+                version: "2.0.0"
+            },
+            semestres: semestresArray
+        };
     }
 };
