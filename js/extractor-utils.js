@@ -1,3 +1,5 @@
+// js/extractor-utils.js
+
 function normalizarID(texto) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
         .toLowerCase()
@@ -6,8 +8,8 @@ function normalizarID(texto) {
         .replace(/^_|_$/g, ""); 
 }
 
-// Convierte la columna 1 en Lunes (L), la 2 en Martes (M), etc.
+// CORRECCIÓN: Ahora usa "W" para Miércoles, igual que tu proyecto principal
 function obtenerDiaLetra(indice) {
-    const dias = ["L", "M", "I", "J", "V", "S", "D"]; 
+    const dias = ["L", "M", "W", "J", "V", "S", "D"]; 
     return dias[indice - 1];
 }
