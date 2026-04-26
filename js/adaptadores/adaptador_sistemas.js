@@ -23,17 +23,21 @@ const AdaptadorSistemas = {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    const bloquesClase = celda.toString().split(/\n|---/);
+                    // CORRECCIÓN 1: Convertir saltos de línea en espacios para no romper los nombres
+                    let textoCelda = celda.toString().replace(/\n/g, " ");
+                    
+                    // Separar solo si hay guiones largos (---) que indican múltiples materias
+                    const bloquesClase = textoCelda.split(/---|- - -/);
 
                     bloquesClase.forEach(bloque => {
-                        const match = bloque.match(/(.*?)\s*\(([A-Z0-9]+)\)(?:[\s-]+(.*))?/i);
+                        // CORRECCIÓN 3: Regex mejorado. Busca los primeros paréntesis que tengan máximo 3 caracteres alfanuméricos
+                        const match = bloque.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(.*)/i);
                         
                         if (match) {
-                            const nombre = match[1].trim();
+                            const nombre = match[1].replace(/-/g, "").trim(); // Limpiamos guiones huérfanos
                             const grupoStr = match[2].trim();
-                            const docenteUbicacion = match[3] ? match[3].trim() : "Por definir";
+                            const docenteUbicacion = match[3] ? match[3].replace(/^-/, "").trim() : "Por definir";
                             
-                            // Usamos las funciones de utilidades globales
                             const idMateria = normalizarID(nombre);
                             const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
 
@@ -70,7 +74,48 @@ const AdaptadorSistemas = {
             }
         });
 
+        // Aplicamos la Consolidación antes de exportar
+        this.consolidarTodosLosHorarios(asignaturasFlat);
         return this.formatearJSONOficial(asignaturasFlat, nombreArchivo);
+    },
+
+    // CORRECCIÓN 2: ALGORITMO DE FUSIÓN DE HORAS CONTINUAS
+    consolidarTodosLosHorarios: function(asignaturasFlat) {
+        Object.values(asignaturasFlat).forEach(materia => {
+            Object.values(materia.gruposMap).forEach(grupo => {
+                if (grupo.horarios.length === 0) return;
+
+                // 1. Agrupar por día
+                const porDia = {};
+                grupo.horarios.forEach(h => {
+                    if (!porDia[h.dia]) porDia[h.dia] = [];
+                    porDia[h.dia].push(h);
+                });
+
+                const horariosConsolidados = [];
+
+                // 2. Fusionar los continuos de cada día
+                for (const dia in porDia) {
+                    // Ordenamos por hora de inicio
+                    let bloques = porDia[dia].sort((a, b) => a.inicio.localeCompare(b.inicio));
+                    
+                    let actual = bloques[0];
+                    for (let i = 1; i < bloques.length; i++) {
+                        let sig = bloques[i];
+                        // Si la hora de fin del actual es la hora de inicio del siguiente (fusionar)
+                        if (actual.fin === sig.inicio) {
+                            actual.fin = sig.fin;
+                        } else {
+                            horariosConsolidados.push(actual);
+                            actual = sig;
+                        }
+                    }
+                    horariosConsolidados.push(actual);
+                }
+
+                grupo.horarios = horariosConsolidados;
+            });
+        });
     },
 
     formatearJSONOficial: function(asignaturasFlat, nombreArchivo) {
