@@ -28,6 +28,8 @@ function procesarArchivo() {
 
         if (selector === "SISTEMAS") {
             resultado = AdaptadorSistemas.procesar(workbook, nombreArchivoOriginal);
+        } else if (selector === "ALIMENTOS") {
+            resultado = AdaptadorAlimentos.procesar(workbook, nombreArchivoOriginal);
         } else {
             alert("El adaptador para esta carrera aún no está implementado.");
             return;
