@@ -38,23 +38,54 @@ const AdaptadorSistemas = {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    // 1. SEPARADOR INTELIGENTE DE CELDAS MULTI-GRUPO
                     let lineasRaw = celda.toString().split(/\n|-{3,}/);
                     let bloquesClase = [];
                     
+                    // ==========================================
+                    // 1. RE-ENSAMBLADOR INTELIGENTE DE CELDAS
+                    // ==========================================
                     lineasRaw.forEach(linea => {
                         let txt = linea.trim();
                         if (txt.length < 3) return;
 
-                        // Evaluamos si esta línea es el inicio de un nuevo grupo (Tiene (A1) o un guion largo)
-                        let pareceNuevaMateria = /\([A-Z0-9]{1,3}\)/i.test(txt) || 
-                                                 /-\s*Grupo\s*[A-Z0-9]{1,3}/i.test(txt) || 
-                                                 (txt.includes("-") && txt.length > 15);
+                        let actualTieneGrupo = /\([A-Z0-9]{1,3}\)/i.test(txt) || /-\s*Grupo\s*[A-Z0-9]{1,3}/i.test(txt) || /-\s*[A-Z][0-9]{1,2}\b/.test(txt);
+                        
+                        let pareceNuevaMateria = false;
+                        if (bloquesClase.length > 0) {
+                            let bloqueAnterior = bloquesClase[bloquesClase.length - 1];
+                            let anteriorTieneGrupo = /\([A-Z0-9]{1,3}\)/i.test(bloqueAnterior) || /-\s*Grupo\s*[A-Z0-9]{1,3}/i.test(bloqueAnterior) || /-\s*[A-Z][0-9]{1,2}\b/.test(bloqueAnterior);
+                            
+                            if (anteriorTieneGrupo && actualTieneGrupo) {
+                                // Ambas líneas tienen grupo (Ej: Prog B1 \n Prog C1). Son materias distintas.
+                                pareceNuevaMateria = true;
+                            } else if (anteriorTieneGrupo && !actualTieneGrupo) {
+                                // Anterior tiene, actual no. Puede ser un aula/profe abajo, o una materia electiva sin grupo.
+                                if (txt.includes("-") && txt.length > 15 && !/(?:Lab\b|Laboratorio|Sal[oó]n|Sala|Edificio|Bloque)/i.test(txt)) {
+                                    pareceNuevaMateria = true; 
+                                } else {
+                                    pareceNuevaMateria = false; // Es el profe o aula, se une.
+                                }
+                            } else if (!anteriorTieneGrupo && actualTieneGrupo) {
+                                // Anterior NO tiene, actual SI. ¡El anterior era la primera mitad del nombre! (Ej: Laboratorio de \n Física (A1) )
+                                pareceNuevaMateria = false; 
+                            } else {
+                                // Ninguna tiene grupo. Son materias distintas solo si ambas tienen formato largo con guiones.
+                                if (txt.includes("-") && txt.length > 15 && bloqueAnterior.includes("-")) {
+                                    pareceNuevaMateria = true; 
+                                } else {
+                                    pareceNuevaMateria = false; 
+                                }
+                            }
+                            
+                            // Excepción absoluta: Si la línea anterior quedó mochada en un conector.
+                            if (bloqueAnterior.match(/\b(de|y|la|el|los|las|en|para|con)$/i)) {
+                                pareceNuevaMateria = false;
+                            }
+                        }
 
                         if (pareceNuevaMateria || bloquesClase.length === 0) {
                             bloquesClase.push(txt);
                         } else {
-                            // Si es un salto de línea de la misma materia, se lo re-adjuntamos
                             bloquesClase[bloquesClase.length - 1] += " " + txt;
                         }
                     });
@@ -89,21 +120,19 @@ const AdaptadorSistemas = {
                         nombre = nombre.replace(/^[-_]+|[-_]+$/g, "").trim();
                         
                         // ==========================================
-                        // 2. LIMPIEZA PROFUNDA DEL DOCENTE
+                        // 2. BORRADOR INVERSO DE AULAS EN DOCENTE
                         // ==========================================
                         docente = docente || "";
-                        // A) Quitar guiones iniciales que quedaron colgando
-                        docente = docente.trim().replace(/^[-_:\s]+/, ""); 
                         
-                        // B) Cortar apenas veamos que empieza a hablar de Aulas (con o sin guion)
-                        let partesUbicacion = docente.split(/(?:\s*-\s*|\s+)(?:Lab\b|Laboratorio\b|Sal[oó]n\b|Sala\b|Edificio\b|Bloque\b)/i);
-                        docente = partesUbicacion[0];
-                        
-                        // C) Borrar ubicaciones escondidas en paréntesis (ej. "(Lab de Redes B)")
-                        docente = docente.replace(/\(\s*(Lab\b|Laboratorio|Sal[oó]n|Sala|Edificio|Bloque).*?\)/ig, "");
+                        // A) Borrar ubicaciones escondidas en paréntesis (ej. "(Lab de Redes B)")
+                        docente = docente.replace(/\(\s*(?:Lab\b|Laboratorio|Sal[oó]n|Sala|Edificio|Bloque).*?\)/ig, "");
 
-                        // D) Limpieza final de guiones finales y espacios
-                        docente = docente.trim().replace(/[-_]+$/, "").trim(); 
+                        // B) Borrar aulas al inicio o al final, absorbiendo sus guiones de conexión.
+                        // Esto mata el error: "Laboratorio de Redes B - Juan José Puello" -> "Juan José Puello"
+                        docente = docente.replace(/(?:^|\s*-\s*|\s+)(?:Lab\b|Laboratorio|Sal[oó]n|Sala|Edificio|Bloque|Sede)[^-]*(?:-|$)/ig, " ");
+
+                        // C) Quitar guiones iniciales o finales que quedaron colgando
+                        docente = docente.replace(/^[-_:\s]+|[-_:\s]+$/g, "").trim(); 
                         
                         if (docente === "") docente = "Por definir";
 
@@ -127,7 +156,6 @@ const AdaptadorSistemas = {
                                 id: idGrupo,
                                 grupo: grupoStr,
                                 profesor: docente, 
-                                // Ubicación completamente eliminada
                                 cupos: null,
                                 horarios: []
                             };
