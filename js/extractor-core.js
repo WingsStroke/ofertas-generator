@@ -325,13 +325,11 @@ function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
     };
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
+    // Hemos vuelto a la "X" para ahorrar espacio y quitado los corchetes de la hora
     card.innerHTML = `
         <div class="cc-header">
-            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">[ ${horario.inicio} - ${horario.fin} ]</span>
-            <div class="cc-actions">
-                <span class="cc-btn cc-btn-bolsa" title="Quitar horario y enviar a bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">Bolsa</span>
-                <span class="cc-btn cc-btn-delete" title="Eliminar por completo del JSON" onclick="eliminarGrupo(${aIdx}, ${gIdx}, event)">Borrar</span>
-            </div>
+            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">${horario.inicio}-${horario.fin}</span>
+            <span class="cc-delete" title="Enviar a Bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">X</span>
         </div>
         <div class="cc-name" onclick="editarTexto('nombre', ${aIdx}, ${gIdx}, event)">
             <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
@@ -354,6 +352,7 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
     };
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
+    // Aquí mantenemos el botón "Borrar" completo ya que hay más espacio lateral
     card.innerHTML = `
         <div class="cc-header" style="justify-content: flex-end; margin-bottom: 0.3rem;">
             <span class="cc-btn cc-btn-delete" title="Eliminar por completo del JSON" onclick="eliminarGrupo(${aIdx}, ${gIdx}, event)">Borrar</span>
