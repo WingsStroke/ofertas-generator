@@ -288,11 +288,13 @@ function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
     card.className = 'clase-card';
     card.draggable = true;
     
-    // Iniciar el estado de arrastre
+    // Iniciar el estado de arrastre (CORRECCIÓN DE BUG)
     card.ondragstart = (e) => { 
         e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx})); 
-        document.body.classList.add('is-dragging'); // Ocultar interactividad a otras tarjetas
+        // Le damos un milisegundo de ventaja al navegador para no cancelar el drag
+        setTimeout(() => document.body.classList.add('is-dragging'), 0);
     };
+    
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
@@ -315,10 +317,12 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
     card.className = 'bolsa-card';
     card.draggable = true;
     
+    // Iniciar el estado de arrastre (CORRECCIÓN DE BUG)
     card.ondragstart = (e) => { 
         e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx: -1})); 
-        document.body.classList.add('is-dragging');
+        setTimeout(() => document.body.classList.add('is-dragging'), 0);
     };
+    
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
