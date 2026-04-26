@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oferta Builder - Universal</title>
+    <title>Oferta Builder</title>
     
     <link rel="stylesheet" href="css/extractor.css">
     
@@ -12,11 +12,11 @@
 <body>
 
     <div class="card">
-        <h1>🛠️ Oferta Builder (Modular)</h1>
+        <h1>Oferta Builder (Modular)</h1>
         <p>Sube un archivo de oferta académica (Excel) y conviértelo a JSON al instante.</p>
         
         <div class="form-group">
-            <label for="carreraSelect">1. Selecciona la Carrera (Adaptador)</label>
+            <label for="carreraSelect">Selecciona la Carrera (Adaptador)</label>
             <select id="carreraSelect">
                 <option value="SISTEMAS">Ingeniería de Sistemas</option>
                 <option value="ALIMENTOS">Ingeniería de Alimentos</option>
@@ -24,14 +24,14 @@
         </div>
 
         <div class="form-group">
-            <label for="fileInput">2. Sube el archivo Excel (.xlsx)</label>
+            <label for="fileInput">Sube el archivo Excel (.xlsx)</label>
             <input type="file" id="fileInput" accept=".xlsx, .xls">
         </div>
 
         <button id="btnProcesar">Generar JSON</button>
         
         <div id="actionButtons" style="display: none; margin-top: 1rem; gap: 1rem;">
-            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">👁️ Ver Resultados</button>
+            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">Ver Resultados</button>
             <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">⬇️ Descargar JSON</button>
         </div>
 
