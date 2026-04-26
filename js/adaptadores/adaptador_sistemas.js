@@ -38,22 +38,36 @@ const AdaptadorSistemas = {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    let textoCelda = celda.toString()
-                        .replace(/\n/g, " ")
-                        .replace(/-{2,}/g, "---") 
-                        .replace(/\s+/g, " "); 
+                    // 1. SEPARADOR INTELIGENTE DE CELDAS MULTI-GRUPO
+                    let lineasRaw = celda.toString().split(/\n|-{3,}/);
+                    let bloquesClase = [];
                     
-                    const bloquesClase = textoCelda.split("---");
+                    lineasRaw.forEach(linea => {
+                        let txt = linea.trim();
+                        if (txt.length < 3) return;
+
+                        // Evaluamos si esta línea es el inicio de un nuevo grupo (Tiene (A1) o un guion largo)
+                        let pareceNuevaMateria = /\([A-Z0-9]{1,3}\)/i.test(txt) || 
+                                                 /-\s*Grupo\s*[A-Z0-9]{1,3}/i.test(txt) || 
+                                                 (txt.includes("-") && txt.length > 15);
+
+                        if (pareceNuevaMateria || bloquesClase.length === 0) {
+                            bloquesClase.push(txt);
+                        } else {
+                            // Si es un salto de línea de la misma materia, se lo re-adjuntamos
+                            bloquesClase[bloquesClase.length - 1] += " " + txt;
+                        }
+                    });
 
                     bloquesClase.forEach(bloque => {
-                        let textoLimpio = bloque.trim();
+                        let textoLimpio = bloque.replace(/\s+/g, " ").trim();
                         if (textoLimpio.length < 5 || textoLimpio.toLowerCase().includes("sugerido")) return;
 
                         textoLimpio = textoLimpio.split(/\. En este grupo|\(Sólo debe escoger/i)[0].trim();
 
                         let nombre = "";
                         let grupoStr = "A1"; 
-                        let docente = "Por definir";
+                        let docente = "";
 
                         let matchConParentesis = textoLimpio.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(.*)/i);
                         let matchConGuion = !matchConParentesis ? textoLimpio.match(/(.*?)\s*-\s*Grupo\s*([A-Z0-9]{1,3})(.*)/i) : null;
@@ -73,11 +87,25 @@ const AdaptadorSistemas = {
                         }
 
                         nombre = nombre.replace(/^[-_]+|[-_]+$/g, "").trim();
-                        docente = docente.replace(/^[-_]+|[-_]+$/g, "").trim() || "Por definir";
                         
-                        // CORRECCIÓN DOCENTE: Cortamos inteligentemente solo si vemos palabras de "ubicación"
-                        let partesDocente = docente.split(/\s*-\s*Lab\b|\s*-\s*Sal[oó]n\b|\s*-\s*Sala\b/i);
-                        docente = partesDocente[0].trim();
+                        // ==========================================
+                        // 2. LIMPIEZA PROFUNDA DEL DOCENTE
+                        // ==========================================
+                        docente = docente || "";
+                        // A) Quitar guiones iniciales que quedaron colgando
+                        docente = docente.trim().replace(/^[-_:\s]+/, ""); 
+                        
+                        // B) Cortar apenas veamos que empieza a hablar de Aulas (con o sin guion)
+                        let partesUbicacion = docente.split(/(?:\s*-\s*|\s+)(?:Lab\b|Laboratorio\b|Sal[oó]n\b|Sala\b|Edificio\b|Bloque\b)/i);
+                        docente = partesUbicacion[0];
+                        
+                        // C) Borrar ubicaciones escondidas en paréntesis (ej. "(Lab de Redes B)")
+                        docente = docente.replace(/\(\s*(Lab\b|Laboratorio|Sal[oó]n|Sala|Edificio|Bloque).*?\)/ig, "");
+
+                        // D) Limpieza final de guiones finales y espacios
+                        docente = docente.trim().replace(/[-_]+$/, "").trim(); 
+                        
+                        if (docente === "") docente = "Por definir";
 
                         if (nombre.length < 4) return;
 
@@ -99,7 +127,7 @@ const AdaptadorSistemas = {
                                 id: idGrupo,
                                 grupo: grupoStr,
                                 profesor: docente, 
-                                // ELIMINAMOS LA PROPIEDAD "ubicacion"
+                                // Ubicación completamente eliminada
                                 cupos: null,
                                 horarios: []
                             };
