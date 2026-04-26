@@ -316,3 +316,55 @@ body.is-dragging .bolsa-card,
 body.is-dragging .stack-container {
     pointer-events: none;
 }
+
+/* ==========================================
+   BARRA DE HERRAMIENTAS Y BÚSQUEDA
+   ========================================== */
+.editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    background: #f1f5f9;
+    border-bottom: 2px solid #e2e8f0;
+    padding-right: 1rem;
+}
+
+.tabs-bar { border-bottom: none; flex: 1; } 
+
+.search-box {
+    margin-bottom: 0.5rem;
+    margin-left: 1rem;
+}
+
+.search-box input {
+    padding: 0.5rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    font-size: 0.85rem;
+    width: 280px;
+    transition: 0.2s;
+}
+
+.search-box input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Iluminación de coincidencia de búsqueda */
+.tab-match {
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    border-color: #3b82f6 !important;
+    box-shadow: inset 0 4px 0 #3b82f6;
+}
+
+/* ==========================================
+   BOTONES DE ACCIÓN EN TARJETAS
+   ========================================== */
+.cc-actions { display: flex; gap: 4px; }
+.cc-btn { font-size: 0.65rem; padding: 2px 5px; border-radius: 4px; cursor: pointer; font-weight: bold; border: 1px solid transparent; }
+.cc-btn-bolsa { background: #fef3c7; color: #d97706; border-color: #fde68a; }
+.cc-btn-bolsa:hover { background: #fde68a; }
+.cc-btn-delete { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.cc-btn-delete:hover { background: #fecaca; }

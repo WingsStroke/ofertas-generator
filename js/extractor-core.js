@@ -3,7 +3,6 @@ let jsonGeneradoGlobal = null;
 let draftData = null; 
 let currentTabSemestre = null;
 
-// Sistema de historial y estado
 let historyStack = [];
 let isDirty = false;
 
@@ -28,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cerrarModal').addEventListener('click', cerrarEditor);
     document.getElementById('btnAplicarCambios').addEventListener('click', aplicarCambios);
     document.getElementById('btnDeshacer').addEventListener('click', deshacerCambio);
+    
+    // Buscador
+    document.getElementById('searchInput').addEventListener('input', ejecutarBusqueda);
 
     const bolsa = document.getElementById('bolsaContainer');
     bolsa.ondragover = handleDragOver;
@@ -69,14 +71,11 @@ function guardarEstado() {
 
 function deshacerCambio() {
     if (historyStack.length === 0) return;
-    
     draftData = JSON.parse(historyStack.pop());
-    
     if (historyStack.length === 0) {
         isDirty = false;
         document.getElementById('btnDeshacer').disabled = true;
     }
-    
     renderGrid(currentTabSemestre);
     renderTabs();
 }
@@ -85,10 +84,10 @@ function abrirEditor() {
     if (!jsonGeneradoGlobal) return;
     draftData = JSON.parse(JSON.stringify(jsonGeneradoGlobal));
     
-    // Reiniciar estado
     historyStack = [];
     isDirty = false;
     document.getElementById('btnDeshacer').disabled = true;
+    document.getElementById('searchInput').value = ""; // Limpiar buscador
 
     document.getElementById('editorModal').classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -108,7 +107,7 @@ function cerrarEditor() {
 
 function aplicarCambios() {
     jsonGeneradoGlobal = JSON.parse(JSON.stringify(draftData));
-    isDirty = false; // Se reinicia al guardar
+    isDirty = false; 
     alert("Cambios aplicados al JSON.");
     document.getElementById('editorModal').classList.remove('active');
     document.body.style.overflow = '';
@@ -127,6 +126,7 @@ function renderTabs() {
         btn.id = `tab-${sem.numero}`;
         container.appendChild(btn);
     });
+    ejecutarBusqueda(); // Reactivar iluminación si había una búsqueda activa
 }
 
 function seleccionarTab(numSemestre) {
@@ -137,7 +137,42 @@ function seleccionarTab(numSemestre) {
 }
 
 // ==========================================
-// EL MOTOR DEL GRID (COORDENADAS Y SUPERPOSICIÓN)
+// SISTEMA DE BÚSQUEDA
+// ==========================================
+function ejecutarBusqueda() {
+    const inputElement = document.getElementById('searchInput');
+    if (!inputElement || !draftData) return;
+    
+    const query = inputElement.value.toLowerCase().trim();
+    
+    draftData.semestres.forEach(sem => {
+        const tab = document.getElementById(`tab-${sem.numero}`);
+        if(!tab) return;
+        
+        if (!query) {
+            tab.classList.remove('tab-match');
+            return;
+        }
+
+        let match = false;
+        sem.asignaturas.forEach(a => {
+            if (a.nombre.toLowerCase().includes(query)) match = true;
+            a.grupos.forEach(g => {
+                if (g.profesor.toLowerCase().includes(query)) match = true;
+                if (g.grupo.toLowerCase().includes(query)) match = true;
+            });
+        });
+
+        if (match) {
+            tab.classList.add('tab-match');
+        } else {
+            tab.classList.remove('tab-match');
+        }
+    });
+}
+
+// ==========================================
+// EL MOTOR DEL GRID (COORDENADAS)
 // ==========================================
 function parseTime(timeStr) {
     let [h, m] = timeStr.split(':').map(Number);
@@ -209,7 +244,6 @@ function renderGrid(numSemestre) {
         });
     });
 
-    // SISTEMA DE MAPEO PARA DETECTAR SUPERPOSICIONES
     const renderMap = {};
 
     semestre.asignaturas.forEach((asig, aIdx) => {
@@ -224,7 +258,6 @@ function renderGrid(numSemestre) {
 
                     if (endRow <= startRow) endRow = startRow + 1;
 
-                    // Clave única basada en coordenadas
                     let key = `${colIdx}_${startRow}_${endRow}`;
                     if(!renderMap[key]) renderMap[key] = [];
                     renderMap[key].push({ asig, grupo, horario, aIdx, gIdx, hIdx });
@@ -233,7 +266,6 @@ function renderGrid(numSemestre) {
         });
     });
 
-    // DIBUJAR TARJETAS Y CONTENEDORES
     for (let key in renderMap) {
         let items = renderMap[key];
         let [colIdx, startRow, endRow] = key.split('_').map(Number);
@@ -245,7 +277,6 @@ function renderGrid(numSemestre) {
             card.style.gridRow = `${startRow} / ${endRow}`;
             grid.appendChild(card);
         } else {
-            // Se detectó superposición: Crear Contenedor
             let stackContainer = document.createElement('div');
             stackContainer.className = 'stack-container collapsed';
             stackContainer.style.gridColumn = `${colIdx} / ${colIdx + 1}`;
@@ -288,19 +319,19 @@ function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
     card.className = 'clase-card';
     card.draggable = true;
     
-    // Iniciar el estado de arrastre (CORRECCIÓN DE BUG)
     card.ondragstart = (e) => { 
         e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx})); 
-        // Le damos un milisegundo de ventaja al navegador para no cancelar el drag
         setTimeout(() => document.body.classList.add('is-dragging'), 0);
     };
-    
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
         <div class="cc-header">
-            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">${horario.inicio}-${horario.fin}</span>
-            <span class="cc-delete" title="Enviar a Bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">X</span>
+            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">[ ${horario.inicio} - ${horario.fin} ]</span>
+            <div class="cc-actions">
+                <span class="cc-btn cc-btn-bolsa" title="Quitar horario y enviar a bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">Bolsa</span>
+                <span class="cc-btn cc-btn-delete" title="Eliminar por completo del JSON" onclick="eliminarGrupo(${aIdx}, ${gIdx}, event)">Borrar</span>
+            </div>
         </div>
         <div class="cc-name" onclick="editarTexto('nombre', ${aIdx}, ${gIdx}, event)">
             <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
@@ -317,32 +348,60 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
     card.className = 'bolsa-card';
     card.draggable = true;
     
-    // Iniciar el estado de arrastre (CORRECCIÓN DE BUG)
     card.ondragstart = (e) => { 
         e.dataTransfer.setData('text/plain', JSON.stringify({aIdx, gIdx, hIdx: -1})); 
         setTimeout(() => document.body.classList.add('is-dragging'), 0);
     };
-    
     card.ondragend = () => { document.body.classList.remove('is-dragging'); };
 
     card.innerHTML = `
-        <div class="cc-name"><span class="cc-group">${grupo.grupo}</span> ${asig.nombre}</div>
-        <div class="cc-prof">${grupo.profesor}</div>
+        <div class="cc-header" style="justify-content: flex-end; margin-bottom: 0.3rem;">
+            <span class="cc-btn cc-btn-delete" title="Eliminar por completo del JSON" onclick="eliminarGrupo(${aIdx}, ${gIdx}, event)">Borrar</span>
+        </div>
+        <div class="cc-name" onclick="editarTexto('nombre', ${aIdx}, ${gIdx}, event)">
+            <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
+        </div>
+        <div class="cc-prof" onclick="editarTexto('profesor', ${aIdx}, ${gIdx}, event)">
+            ${grupo.profesor}
+        </div>
     `;
     return card;
 }
 
 // ==========================================
+// ELIMINACIÓN PERMANENTE DE GRUPOS/MATERIAS
+// ==========================================
+function eliminarGrupo(aIdx, gIdx, event) {
+    if (event) event.stopPropagation();
+    
+    if (!confirm("¿Seguro que deseas eliminar este grupo? Se borrará permanentemente del archivo JSON.")) return;
+    
+    guardarEstado(); 
+    
+    const semestre = draftData.semestres.find(s => s.numero === currentTabSemestre);
+    const asig = semestre.asignaturas[aIdx];
+    
+    asig.grupos.splice(gIdx, 1);
+    
+    // Si la asignatura se queda sin grupos, limpiarla del semestre
+    if (asig.grupos.length === 0) {
+        semestre.asignaturas.splice(aIdx, 1);
+    }
+    
+    renderGrid(currentTabSemestre);
+    renderTabs();
+}
+
+// ==========================================
 // LÓGICA DE DRAG & DROP Y EDICIÓN
 // ==========================================
-
 function handleDragOver(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
 function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
 function dropToGrid(ev) {
     ev.preventDefault();
     ev.currentTarget.classList.remove('drag-over');
-    document.body.classList.remove('is-dragging'); // Remover flag por seguridad
+    document.body.classList.remove('is-dragging'); 
     
     const dataStr = ev.dataTransfer.getData('text/plain');
     if(!dataStr) return;
@@ -353,7 +412,7 @@ function dropToGrid(ev) {
 
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
 
-    guardarEstado();
+    guardarEstado(); 
 
     if (hIdx === -1) {
         let startIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
@@ -378,7 +437,7 @@ function dropToGrid(ev) {
 
 function dropToBolsa(ev) {
     ev.preventDefault();
-    document.body.classList.remove('is-dragging'); // Remover flag por seguridad
+    document.body.classList.remove('is-dragging'); 
     const dataStr = ev.dataTransfer.getData('text/plain');
     if(!dataStr) return;
     const {aIdx, gIdx, hIdx} = JSON.parse(dataStr);
@@ -387,7 +446,7 @@ function dropToBolsa(ev) {
 
 function enviarABolsa(aIdx, gIdx, hIdx, event) {
     if(event) event.stopPropagation();
-    guardarEstado(); // Guardar fotografía
+    guardarEstado(); 
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
     grupo.horarios.splice(hIdx, 1);
     renderGrid(currentTabSemestre); renderTabs();
@@ -402,9 +461,9 @@ function editarHora(aIdx, gIdx, hIdx, event) {
     let nuevoFin = prompt("Hora de Fin (formato HH:MM):", horario.fin);
     if (!nuevoFin) return;
 
-    if (nuevoInicio.trim() === horario.inicio && nuevoFin.trim() === horario.fin) return; // Si no hay cambios, no hace nada
+    if (nuevoInicio.trim() === horario.inicio && nuevoFin.trim() === horario.fin) return; 
 
-    guardarEstado(); // Guardar fotografía
+    guardarEstado(); 
     horario.inicio = nuevoInicio.trim();
     horario.fin = nuevoFin.trim();
     renderGrid(currentTabSemestre);
@@ -419,7 +478,7 @@ function editarTexto(campo, aIdx, gIdx, event) {
     const nuevoValor = prompt(`Editar ${campo.toUpperCase()}:`, valorActual);
 
     if (nuevoValor && nuevoValor.trim() !== "" && nuevoValor !== valorActual) {
-        guardarEstado(); // Guardar fotografía
+        guardarEstado(); 
         
         if (campo === 'nombre') {
             if (asig.grupos.length > 1) {
