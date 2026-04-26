@@ -1,0 +1,57 @@
+:root { 
+    --primary: #2563eb; 
+    --bg: #f8fafc; 
+    --surface: #ffffff; 
+    --text: #1e293b; 
+}
+body { 
+    font-family: 'Segoe UI', system-ui, sans-serif; 
+    background-color: var(--bg); 
+    color: var(--text); 
+    padding: 2rem; 
+    max-width: 800px; 
+    margin: 0 auto; 
+}
+.card { 
+    background: var(--surface); 
+    padding: 2rem; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+}
+h1 { margin-top: 0; color: var(--primary); }
+.form-group { margin-bottom: 1.5rem; }
+label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+select, input[type="file"] { 
+    width: 100%; 
+    padding: 0.75rem; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+    font-size: 1rem; 
+}
+button { 
+    background: var(--primary); 
+    color: white; 
+    border: none; 
+    padding: 0.75rem 1.5rem; 
+    border-radius: 6px; 
+    font-size: 1rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    width: 100%; 
+}
+button:hover { background: #1d4ed8; }
+pre { 
+    background: #1e293b; 
+    color: #a5b4fc; 
+    padding: 1rem; 
+    border-radius: 6px; 
+    overflow-x: auto; 
+    max-height: 400px; 
+    font-size: 0.875rem; 
+}
+#btnDescargar { 
+    background: #10b981; 
+    margin-top: 1rem; 
+}
+#btnDescargar:hover { background: #059669; }
