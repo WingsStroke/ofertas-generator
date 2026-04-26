@@ -3,6 +3,10 @@ let jsonGeneradoGlobal = null;
 let draftData = null; 
 let currentTabSemestre = null;
 
+// Sistema de historial y estado
+let historyStack = [];
+let isDirty = false;
+
 const BLOQUES_HORARIOS = [
     { id: "07:00", next: "07:50" }, { id: "07:50", next: "08:40" },
     { id: "08:40", next: "09:30" }, { id: "09:30", next: "10:20" },
@@ -23,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnVerResultados').addEventListener('click', abrirEditor);
     document.getElementById('cerrarModal').addEventListener('click', cerrarEditor);
     document.getElementById('btnAplicarCambios').addEventListener('click', aplicarCambios);
+    document.getElementById('btnDeshacer').addEventListener('click', deshacerCambio);
 
     const bolsa = document.getElementById('bolsaContainer');
     bolsa.ondragover = handleDragOver;
@@ -56,9 +61,35 @@ function procesarArchivo() {
 // ==========================================
 // CONTROL DEL ESTADO Y TABS
 // ==========================================
+function guardarEstado() {
+    historyStack.push(JSON.stringify(draftData));
+    isDirty = true;
+    document.getElementById('btnDeshacer').disabled = false;
+}
+
+function deshacerCambio() {
+    if (historyStack.length === 0) return;
+    
+    draftData = JSON.parse(historyStack.pop());
+    
+    if (historyStack.length === 0) {
+        isDirty = false;
+        document.getElementById('btnDeshacer').disabled = true;
+    }
+    
+    renderGrid(currentTabSemestre);
+    renderTabs();
+}
+
 function abrirEditor() {
     if (!jsonGeneradoGlobal) return;
     draftData = JSON.parse(JSON.stringify(jsonGeneradoGlobal));
+    
+    // Reiniciar estado
+    historyStack = [];
+    isDirty = false;
+    document.getElementById('btnDeshacer').disabled = true;
+
     document.getElementById('editorModal').classList.add('active');
     document.body.style.overflow = 'hidden';
     
@@ -67,15 +98,17 @@ function abrirEditor() {
 }
 
 function cerrarEditor() {
-    if(confirm("¿Salir sin guardar?")){
-        document.getElementById('editorModal').classList.remove('active');
-        document.body.style.overflow = '';
-        draftData = null; 
+    if (isDirty) {
+        if (!confirm("¿Salir sin guardar? Los cambios no aplicados se perderán.")) return;
     }
+    document.getElementById('editorModal').classList.remove('active');
+    document.body.style.overflow = '';
+    draftData = null; 
 }
 
 function aplicarCambios() {
     jsonGeneradoGlobal = JSON.parse(JSON.stringify(draftData));
+    isDirty = false; // Se reinicia al guardar
     alert("Cambios aplicados al JSON.");
     document.getElementById('editorModal').classList.remove('active');
     document.body.style.overflow = '';
@@ -246,11 +279,17 @@ function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 function dropToGrid(ev) {
     ev.preventDefault();
     ev.currentTarget.classList.remove('drag-over');
-    const {aIdx, gIdx, hIdx} = JSON.parse(ev.dataTransfer.getData('text/plain'));
+    
+    const dataStr = ev.dataTransfer.getData('text/plain');
+    if(!dataStr) return;
+    
+    const {aIdx, gIdx, hIdx} = JSON.parse(dataStr);
     const newDia = ev.currentTarget.dataset.dia;
     const newInicio = ev.currentTarget.dataset.inicio;
 
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
+
+    guardarEstado(); // Guardar fotografía antes de modificar
 
     if (hIdx === -1) {
         let startIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
@@ -275,12 +314,15 @@ function dropToGrid(ev) {
 
 function dropToBolsa(ev) {
     ev.preventDefault();
-    const {aIdx, gIdx, hIdx} = JSON.parse(ev.dataTransfer.getData('text/plain'));
+    const dataStr = ev.dataTransfer.getData('text/plain');
+    if(!dataStr) return;
+    const {aIdx, gIdx, hIdx} = JSON.parse(dataStr);
     if (hIdx !== -1) enviarABolsa(aIdx, gIdx, hIdx, ev);
 }
 
 function enviarABolsa(aIdx, gIdx, hIdx, event) {
     if(event) event.stopPropagation();
+    guardarEstado(); // Guardar fotografía
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
     grupo.horarios.splice(hIdx, 1);
     renderGrid(currentTabSemestre); renderTabs();
@@ -295,6 +337,9 @@ function editarHora(aIdx, gIdx, hIdx, event) {
     let nuevoFin = prompt("Hora de Fin (formato HH:MM):", horario.fin);
     if (!nuevoFin) return;
 
+    if (nuevoInicio.trim() === horario.inicio && nuevoFin.trim() === horario.fin) return; // Si no hay cambios, no hace nada
+
+    guardarEstado(); // Guardar fotografía
     horario.inicio = nuevoInicio.trim();
     horario.fin = nuevoFin.trim();
     renderGrid(currentTabSemestre);
@@ -309,6 +354,8 @@ function editarTexto(campo, aIdx, gIdx, event) {
     const nuevoValor = prompt(`Editar ${campo.toUpperCase()}:`, valorActual);
 
     if (nuevoValor && nuevoValor.trim() !== "" && nuevoValor !== valorActual) {
+        guardarEstado(); // Guardar fotografía
+        
         if (campo === 'nombre') {
             if (asig.grupos.length > 1) {
                 if (confirm(`¿Aplicar nombre a todos los ${asig.grupos.length} grupos de esta materia?`)) asig.nombre = nuevoValor.trim();
