@@ -12,7 +12,7 @@
 <body>
 
     <div class="card">
-        <h1>Oferta Builder (Modular)</h1>
+        <h1>🛠️ Oferta Builder (Modular)</h1>
         <p>Sube un archivo de oferta académica (Excel) y conviértelo a JSON al instante.</p>
         
         <div class="form-group">
@@ -29,18 +29,30 @@
         </div>
 
         <button id="btnProcesar">Generar JSON</button>
-        <button id="btnDescargar" style="display: none;">Descargar JSON Oficial</button>
+        
+        <div id="actionButtons" style="display: none; margin-top: 1rem; gap: 1rem;">
+            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">👁️ Ver Resultados</button>
+            <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">⬇️ Descargar JSON</button>
+        </div>
 
-        <h3 style="margin-top: 2rem;">Previsualización de Datos:</h3>
+        <h3 style="margin-top: 2rem;">Previsualización Cruda:</h3>
         <pre id="jsonOutput">Esperando archivo...</pre>
     </div>
 
-    <script src="js/extractor-utils.js"></script>
-    
-    <script src="js/adaptadores/adaptador_sistemas.js"></script>
+    <div id="resultadosModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Tabla de Oferta Extraída</h2>
+                <span class="close-btn" id="cerrarModal">&times;</span>
+            </div>
+            <div id="resultadosTablaContenedor" class="modal-body">
+                </div>
+        </div>
+    </div>
 
+    <script src="js/extractor-utils.js"></script>
+    <script src="js/adaptadores/adaptador_sistemas.js"></script>
     <script src="js/adaptadores/adaptador_alimentos.js"></script>
-    
     <script src="js/extractor-core.js"></script>
 
 </body>
