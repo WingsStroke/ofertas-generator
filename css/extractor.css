@@ -176,7 +176,7 @@ pre {
 }
 
 /* ==========================================
-   NUEVO EDITOR VISUAL (KANBAN STYLE)
+   EDITOR VISUAL EN TABLA (GRID HORARIO)
    ========================================== */
 .editor-modal { width: 98%; max-width: 1400px; height: 90vh; }
 .btn-success { background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; cursor: pointer; }
@@ -191,23 +191,23 @@ pre {
 
 /* Layout Grid + Bolsa */
 .editor-layout { display: flex; flex: 1; overflow: hidden; background: white; }
-.grid-board { flex: 3; display: flex; overflow-x: auto; overflow-y: auto; padding: 1rem; gap: 1rem; background: #f8fafc; }
+.grid-board { flex: 4; overflow: auto; padding: 1rem; background: #f8fafc; }
 .bolsa-sidebar { flex: 1; min-width: 250px; max-width: 300px; background: #f1f5f9; border-left: 2px solid #e2e8f0; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto;}
-
-/* Columnas de Días */
-.day-column { flex: 1; min-width: 200px; background: #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; }
-.day-header { text-align: center; font-weight: bold; padding: 0.5rem; background: #cbd5e1; border-radius: 8px 8px 0 0; }
-.day-dropzone { flex: 1; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 200px; }
 .bolsa-dropzone { flex: 1; background: #e2e8f0; border-radius: 8px; padding: 0.5rem; min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem;}
 
-/* Tarjetas de Clases (Draggables) */
-.clase-card { background: white; border-left: 4px solid var(--primary); border-radius: 6px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: grab; position: relative; transition: 0.2s;}
-.clase-card:active { cursor: grabbing; opacity: 0.8; transform: scale(0.98); }
-.clase-card.drag-over { border: 2px dashed var(--primary); background: #eff6ff; }
+/* TABLA DE HORARIOS (Timetable) */
+.timetable { width: 100%; min-width: 900px; border-collapse: collapse; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.timetable th { background: #cbd5e1; color: #1e293b; font-weight: 600; padding: 0.75rem; border: 1px solid #94a3b8; position: sticky; top: 0; z-index: 2; }
+.timetable .time-label { background: #f1f5f9; font-weight: 600; text-align: center; border: 1px solid #94a3b8; width: 120px; position: sticky; left: 0; z-index: 1; }
+.time-cell { border: 1px solid #e2e8f0; padding: 0.25rem; vertical-align: top; width: 14%; min-height: 80px; transition: background 0.2s; }
+.time-cell.drag-over { background: #dbeafe; border: 2px dashed var(--primary); }
 
-.cc-time { font-weight: bold; color: #1e293b; font-size: 0.85rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;}
-.cc-name { font-size: 0.9rem; font-weight: 600; color: #3b82f6; cursor: text; line-height: 1.2; margin-bottom: 0.25rem; }
+/* Tarjetas de Clases (Draggables) */
+.clase-card { background: white; border-left: 4px solid var(--primary); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.15); cursor: grab; }
+.clase-card:active { cursor: grabbing; opacity: 0.8; transform: scale(0.98); }
+.cc-time { font-weight: bold; color: #1e293b; font-size: 0.75rem; margin-bottom: 0.2rem; }
+.cc-name { font-size: 0.85rem; font-weight: 600; color: #3b82f6; cursor: text; line-height: 1.2; margin-bottom: 0.2rem; }
 .cc-name:hover { text-decoration: underline; }
-.cc-prof { font-size: 0.8rem; color: #64748b; cursor: text; }
+.cc-prof { font-size: 0.75rem; color: #64748b; cursor: text; }
 .cc-prof:hover { color: #1e293b; background: #f1f5f9; }
-.cc-group { display: inline-block; background: #dcfce7; color: #166534; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.75rem; margin-right: 5px;}
+.cc-group { display: inline-block; background: #dcfce7; color: #166534; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.7rem; margin-right: 3px;}

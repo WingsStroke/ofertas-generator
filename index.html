@@ -10,7 +10,7 @@
 <body>
 
     <div class="card">
-        <h1>🛠️ Oferta Builder (Editor Pro)</h1>
+        <h1>Oferta Builder</h1>
         <p>Sube un Excel, extrae los datos, audítalos visualmente y genera tu JSON.</p>
         
         <div class="form-group">
@@ -29,8 +29,8 @@
         <button id="btnProcesar">Extraer Horarios</button>
         
         <div id="actionButtons" style="display: none; margin-top: 1rem; gap: 1rem;">
-            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">✏️ Abrir Editor Visual</button>
-            <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">⬇️ Descargar JSON</button>
+            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">Abrir Editor Visual</button>
+            <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">Descargar JSON</button>
         </div>
         
         <pre id="jsonOutput" style="display: none;"></pre>
@@ -41,7 +41,7 @@
             <div class="modal-header">
                 <h2>Tablero de Edición de Oferta</h2>
                 <div class="header-actions">
-                    <button id="btnAplicarCambios" class="btn-success">✅ Aplicar Cambios al JSON</button>
+                    <button id="btnAplicarCambios" class="btn-success">Aplicar Cambios al JSON</button>
                     <span class="close-btn" id="cerrarModal">&times;</span>
                 </div>
             </div>
@@ -49,14 +49,12 @@
             <div id="tabsContainer" class="tabs-bar"></div>
 
             <div class="editor-layout">
-                <div id="gridContainer" class="grid-board">
-                    </div>
+                <div id="gridContainer" class="grid-board"></div>
 
                 <div class="bolsa-sidebar">
-                    <h3>Bolsa de Conflictos</h3>
-                    <p class="small-text">Materias sin horario o con errores.</p>
-                    <div id="bolsaContainer" class="bolsa-dropzone">
-                        </div>
+                    <h3>Bolsa de Asignaturas</h3>
+                    <p class="small-text">Materias sin horario asignado.</p>
+                    <div id="bolsaContainer" class="bolsa-dropzone"></div>
                 </div>
             </div>
         </div>
