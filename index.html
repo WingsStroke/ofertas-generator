@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oferta Builder</title>
-    
+    <title>Oferta Builder - Universal</title>
     <link rel="stylesheet" href="css/extractor.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
     <div class="card">
-        <h1>Oferta Builder (Modular)</h1>
-        <p>Sube un archivo de oferta académica (Excel) y conviértelo a JSON al instante.</p>
+        <h1>🛠️ Oferta Builder (Editor Pro)</h1>
+        <p>Sube un Excel, extrae los datos, audítalos visualmente y genera tu JSON.</p>
         
         <div class="form-group">
-            <label for="carreraSelect">Selecciona la Carrera (Adaptador)</label>
+            <label for="carreraSelect">1. Selecciona la Carrera</label>
             <select id="carreraSelect">
                 <option value="SISTEMAS">Ingeniería de Sistemas</option>
                 <option value="ALIMENTOS">Ingeniería de Alimentos</option>
@@ -24,29 +22,43 @@
         </div>
 
         <div class="form-group">
-            <label for="fileInput">Sube el archivo Excel (.xlsx)</label>
+            <label for="fileInput">2. Sube el archivo Excel (.xlsx)</label>
             <input type="file" id="fileInput" accept=".xlsx, .xls">
         </div>
 
-        <button id="btnProcesar">Generar JSON</button>
+        <button id="btnProcesar">Extraer Horarios</button>
         
         <div id="actionButtons" style="display: none; margin-top: 1rem; gap: 1rem;">
-            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">Ver Resultados</button>
-            <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">Descargar JSON</button>
+            <button id="btnVerResultados" style="background: #f59e0b; flex: 1;">✏️ Abrir Editor Visual</button>
+            <button id="btnDescargar" style="background: #10b981; flex: 1; margin-top: 0;">⬇️ Descargar JSON</button>
         </div>
-
-        <h3 style="margin-top: 2rem;">Previsualización Cruda:</h3>
-        <pre id="jsonOutput">Esperando archivo...</pre>
+        
+        <pre id="jsonOutput" style="display: none;"></pre>
     </div>
 
-    <div id="resultadosModal" class="modal">
-        <div class="modal-content">
+    <div id="editorModal" class="modal">
+        <div class="modal-content editor-modal">
             <div class="modal-header">
-                <h2>Tabla de Oferta Extraída</h2>
-                <span class="close-btn" id="cerrarModal">&times;</span>
-            </div>
-            <div id="resultadosTablaContenedor" class="modal-body">
+                <h2>Tablero de Edición de Oferta</h2>
+                <div class="header-actions">
+                    <button id="btnAplicarCambios" class="btn-success">✅ Aplicar Cambios al JSON</button>
+                    <span class="close-btn" id="cerrarModal">&times;</span>
                 </div>
+            </div>
+            
+            <div id="tabsContainer" class="tabs-bar"></div>
+
+            <div class="editor-layout">
+                <div id="gridContainer" class="grid-board">
+                    </div>
+
+                <div class="bolsa-sidebar">
+                    <h3>Bolsa de Conflictos</h3>
+                    <p class="small-text">Materias sin horario o con errores.</p>
+                    <div id="bolsaContainer" class="bolsa-dropzone">
+                        </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -54,6 +66,5 @@
     <script src="js/adaptadores/adaptador_sistemas.js"></script>
     <script src="js/adaptadores/adaptador_alimentos.js"></script>
     <script src="js/extractor-core.js"></script>
-
 </body>
 </html>
