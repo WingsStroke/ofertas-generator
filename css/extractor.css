@@ -178,29 +178,50 @@ pre {
 /* ==========================================
    EDITOR VISUAL: GRID DE COORDENADAS (CSS GRID)
    ========================================== */
-.editor-modal { width: 98%; max-width: 1400px; height: 90vh; }
+.editor-modal { 
+    width: 98%; 
+    max-width: 1400px; 
+    height: 90vh; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+}
+
 .btn-success { background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-success:hover { background: #059669; }
 .header-actions { display: flex; gap: 1rem; align-items: center; }
 
 /* Tabs y Layout */
-.tabs-bar { display: flex; background: #f1f5f9; padding: 0.5rem 1rem 0; gap: 0.5rem; overflow-x: auto; border-bottom: 2px solid #e2e8f0; }
+.tabs-bar { display: flex; background: #f1f5f9; padding: 0.5rem 1rem 0; gap: 0.5rem; overflow-x: auto; border-bottom: 2px solid #e2e8f0; flex-shrink: 0; }
 .tab-btn { background: #e2e8f0; border: none; padding: 0.5rem 1rem; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 600; color: #475569; width: auto; white-space: nowrap; }
 .tab-btn.active { background: white; color: var(--primary); border-top: 3px solid var(--primary); border-bottom: 2px solid white; margin-bottom: -2px; }
 .tab-badge { background: #ef4444; color: white; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 10px; margin-left: 5px; }
 
-.editor-layout { display: flex; flex: 1; overflow: hidden; background: white; }
+/* Contenedor principal que permite el scroll de sus hijos */
+.editor-layout { 
+    display: flex; 
+    flex: 1; 
+    min-height: 0; /* Regla de oro para habilitar scroll en Flexbox */
+    background: white; 
+}
+
 .bolsa-sidebar { flex: 1; min-width: 250px; max-width: 300px; background: #f1f5f9; border-left: 2px solid #e2e8f0; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto;}
 .bolsa-dropzone { flex: 1; background: #e2e8f0; border-radius: 8px; padding: 0.5rem; min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem;}
 
 /* EL CSS GRID (La magia del estiramiento visual) */
-.timetable-wrapper { flex: 4; overflow: auto; background: #f8fafc; padding: 1rem; }
+.grid-board { 
+    flex: 4; 
+    overflow: auto; 
+    background: #f8fafc; 
+    padding: 1rem; 
+}
+
 .timetable-grid {
     display: grid;
     grid-template-columns: 100px repeat(6, 1fr);
-    grid-template-rows: 40px repeat(18, 60px); /* 60px de alto por cada bloque de 50min */
+    grid-template-rows: 40px repeat(18, 60px); 
     gap: 1px;
-    background-color: #cbd5e1; /* Color de las líneas del grid */
+    background-color: #cbd5e1; 
     border: 1px solid #94a3b8;
     min-width: 900px;
     position: relative;
@@ -220,7 +241,7 @@ pre {
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
     cursor: grab;
     position: relative;
-    z-index: 15; /* Por encima de las celdas del fondo */
+    z-index: 15; 
     display: flex;
     flex-direction: column;
     overflow: hidden;

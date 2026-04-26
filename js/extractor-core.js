@@ -76,7 +76,7 @@ function cerrarEditor() {
 
 function aplicarCambios() {
     jsonGeneradoGlobal = JSON.parse(JSON.stringify(draftData));
-    alert("✅ Cambios aplicados al JSON.");
+    alert("Cambios aplicados al JSON.");
     document.getElementById('editorModal').classList.remove('active');
     document.body.style.overflow = '';
 }
@@ -112,15 +112,12 @@ function parseTime(timeStr) {
 }
 
 function getRowForTime(timeStr) {
-    // Busca la hora exacta en los inicios
     let index = BLOQUES_HORARIOS.findIndex(b => b.id === timeStr);
-    if (index !== -1) return index + 2; // +2 porque la fila 1 es el header
+    if (index !== -1) return index + 2; 
     
-    // Busca si es una hora de fin exacta
     let prevIndex = BLOQUES_HORARIOS.findIndex(b => b.next === timeStr);
     if (prevIndex !== -1) return prevIndex + 3;
     
-    // Aproximación si escribieron una hora rara (ej 07:15)
     let tMins = parseTime(timeStr);
     let closestRow = 2;
     let minDiff = Infinity;
@@ -139,11 +136,9 @@ function renderGrid(numSemestre) {
     const semestre = draftData.semestres.find(s => s.numero === numSemestre);
     if(!semestre) return;
 
-    // Crear Contenedor CSS Grid
     const grid = document.createElement('div');
     grid.className = 'timetable-grid';
 
-    // 1. Dibujar Cabeceras de Días
     let corner = document.createElement('div');
     corner.className = 'timetable-header';
     corner.style.gridColumn = '1 / 2'; corner.style.gridRow = '1 / 2';
@@ -159,7 +154,6 @@ function renderGrid(numSemestre) {
         grid.appendChild(header);
     });
 
-    // 2. Dibujar Fondo del Grid (Celdas para soltar)
     BLOQUES_HORARIOS.forEach((b, r) => {
         let timeLabel = document.createElement('div');
         timeLabel.className = 'timetable-time';
@@ -182,7 +176,6 @@ function renderGrid(numSemestre) {
         });
     });
 
-    // 3. Ubicar las Tarjetas usando Coordenadas (grid-row y grid-column)
     semestre.asignaturas.forEach((asig, aIdx) => {
         asig.grupos.forEach((grupo, gIdx) => {
             if (grupo.horarios.length === 0) {
@@ -193,7 +186,6 @@ function renderGrid(numSemestre) {
                     let endRow = getRowForTime(horario.fin);
                     let colIdx = DIAS.indexOf(horario.dia) + 2;
 
-                    // Si el extractor falló y puso fin antes que inicio, forzamos mínimo 1 bloque
                     if (endRow <= startRow) endRow = startRow + 1;
 
                     let card = crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx);
@@ -219,14 +211,14 @@ function crearTarjetaGrid(asig, grupo, horario, aIdx, gIdx, hIdx) {
 
     card.innerHTML = `
         <div class="cc-header">
-            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">🕒 ${horario.inicio}-${horario.fin}</span>
-            <span class="cc-delete" title="Enviar a Bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">✖</span>
+            <span class="cc-time" title="Clic para editar horas" onclick="editarHora(${aIdx}, ${gIdx}, ${hIdx}, event)">${horario.inicio}-${horario.fin}</span>
+            <span class="cc-delete" title="Enviar a Bolsa" onclick="enviarABolsa(${aIdx}, ${gIdx}, ${hIdx}, event)">X</span>
         </div>
         <div class="cc-name" onclick="editarTexto('nombre', ${aIdx}, ${gIdx}, event)">
             <span class="cc-group">${grupo.grupo}</span> ${asig.nombre}
         </div>
         <div class="cc-prof" onclick="editarTexto('profesor', ${aIdx}, ${gIdx}, event)">
-            👨‍🏫 ${grupo.profesor}
+            ${grupo.profesor}
         </div>
     `;
     return card;
@@ -240,7 +232,7 @@ function crearTarjetaBolsa(asig, grupo, aIdx, gIdx) {
 
     card.innerHTML = `
         <div class="cc-name"><span class="cc-group">${grupo.grupo}</span> ${asig.nombre}</div>
-        <div class="cc-prof">👨‍🏫 ${grupo.profesor}</div>
+        <div class="cc-prof">${grupo.profesor}</div>
     `;
     return card;
 }
@@ -261,12 +253,10 @@ function dropToGrid(ev) {
     const grupo = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx];
 
     if (hIdx === -1) {
-        // Viene de bolsa: Damos 2 bloques (1h 40m) por defecto
         let startIndex = BLOQUES_HORARIOS.findIndex(b => b.id === newInicio);
         let finAprox = BLOQUES_HORARIOS[startIndex + 1] ? BLOQUES_HORARIOS[startIndex + 1].next : "22:10";
         grupo.horarios.push({ dia: newDia, inicio: newInicio, fin: finAprox, jornada: parseTime(newInicio) >= 1080 ? "nocturna" : "diurna" });
     } else {
-        // Viene del grid: Mantiene su duración y se ajusta a la nueva hora
         let horario = grupo.horarios[hIdx];
         let durationBlocks = getRowForTime(horario.fin) - getRowForTime(horario.inicio);
         
@@ -296,7 +286,6 @@ function enviarABolsa(aIdx, gIdx, hIdx, event) {
     renderGrid(currentTabSemestre); renderTabs();
 }
 
-// EDICIÓN MANUAL DE HORAS (Sustituye al Resize)
 function editarHora(aIdx, gIdx, hIdx, event) {
     event.stopPropagation();
     const horario = draftData.semestres.find(s => s.numero === currentTabSemestre).asignaturas[aIdx].grupos[gIdx].horarios[hIdx];
