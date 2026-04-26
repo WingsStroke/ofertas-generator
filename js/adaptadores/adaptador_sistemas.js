@@ -17,9 +17,6 @@ const AdaptadorSistemas = {
                 let rangoHora = fila[0]; 
                 if (!rangoHora || typeof rangoHora !== 'string' || !rangoHora.includes("-")) continue;
 
-                // ==========================================
-                // 1. CORRECCIÓN: RELOJ AM/PM INTELIGENTE
-                // ==========================================
                 let [strInicio, strFin] = rangoHora.split("-").map(h => h.trim().replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
                 
                 let horaInicioRaw = parseInt(strInicio.split(":")[0]);
@@ -30,9 +27,6 @@ const AdaptadorSistemas = {
                 let horaInicio = horaInicioRaw;
                 let horaFin = horaFinRaw;
 
-                // La regla de oro universitaria: 
-                // Si la hora dice 1, 2, 3, 4, 5, 6... SEGURO es de la tarde. (13, 14, 15...)
-                // Las clases matutinas siempre son 7, 8, 9, 10, 11, 12.
                 if (horaInicio >= 1 && horaInicio <= 6) horaInicio += 12;
                 if (horaFin >= 1 && horaFin <= 6) horaFin += 12;
 
@@ -40,40 +34,28 @@ const AdaptadorSistemas = {
                 let fin = `${horaFin.toString().padStart(2, '0')}:${minFin}`;
                 let jornada = horaInicio >= 18 ? "nocturna" : "diurna";
 
-                // ==========================================
-                // 2. EXTRACCIÓN Y LIMPIEZA DE CELDAS
-                // ==========================================
                 for (let col = 1; col <= 5; col++) {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    // Limpiamos la celda de saltos de línea y ruido visual
                     let textoCelda = celda.toString()
                         .replace(/\n/g, " ")
-                        .replace(/-{2,}/g, "---") // Normalizamos líneas punteadas
-                        .replace(/\s+/g, " "); // Quitamos espacios dobles
+                        .replace(/-{2,}/g, "---") 
+                        .replace(/\s+/g, " "); 
                     
-                    // Separamos por el guion largo "---" que indica materias diferentes
                     const bloquesClase = textoCelda.split("---");
 
                     bloquesClase.forEach(bloque => {
                         let textoLimpio = bloque.trim();
                         if (textoLimpio.length < 5 || textoLimpio.toLowerCase().includes("sugerido")) return;
 
-                        // Quitamos notas aclaratorias largas
                         textoLimpio = textoLimpio.split(/\. En este grupo|\(Sólo debe escoger/i)[0].trim();
 
                         let nombre = "";
-                        let grupoStr = "A1"; // Valor por defecto
+                        let grupoStr = "A1"; 
                         let docente = "Por definir";
 
-                        // ==========================================
-                        // 3. CORRECCIÓN: REGEX UNIVERSAL PARA SISTEMAS
-                        // ==========================================
-                        // Buscar patrón (GRUPO). Ej: Cálculo Diferencial (A1) - Profesor
                         let matchConParentesis = textoLimpio.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(.*)/i);
-                        
-                        // Buscar patrón - Grupo A1. Ej: Cálculo - Grupo A1 - Profesor
                         let matchConGuion = !matchConParentesis ? textoLimpio.match(/(.*?)\s*-\s*Grupo\s*([A-Z0-9]{1,3})(.*)/i) : null;
 
                         if (matchConParentesis) {
@@ -85,28 +67,23 @@ const AdaptadorSistemas = {
                             grupoStr = matchConGuion[2];
                             docente = matchConGuion[3];
                         } else {
-                            // Materias sin grupo especificado (Ej. "Software Libre - Gabriel")
                             let partes = textoLimpio.split("-");
                             nombre = partes[0];
                             if (partes.length > 1) docente = partes.slice(1).join("-");
                         }
 
-                        // Limpieza final de las variables extraídas
                         nombre = nombre.replace(/^[-_]+|[-_]+$/g, "").trim();
                         docente = docente.replace(/^[-_]+|[-_]+$/g, "").trim() || "Por definir";
                         
-                        // CORRECCIÓN: Separar profesor de salón ("Docente X - Lab Y")
-                        let partesDocente = docente.split("-");
+                        // CORRECCIÓN DOCENTE: Cortamos inteligentemente solo si vemos palabras de "ubicación"
+                        let partesDocente = docente.split(/\s*-\s*Lab\b|\s*-\s*Sal[oó]n\b|\s*-\s*Sala\b/i);
                         docente = partesDocente[0].trim();
-                        let ubicacion = partesDocente.length > 1 ? partesDocente.slice(1).join("-").trim() : "Ver docente";
 
                         if (nombre.length < 4) return;
 
-                        // Generación de IDs (Usando función de utilidades)
                         const idMateria = normalizarID(nombre);
                         const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
 
-                        // Inyección al JSON
                         if (!asignaturasFlat[idMateria]) {
                             asignaturasFlat[idMateria] = {
                                 id: idMateria,
@@ -122,13 +99,12 @@ const AdaptadorSistemas = {
                                 id: idGrupo,
                                 grupo: grupoStr,
                                 profesor: docente, 
-                                ubicacion: ubicacion, 
+                                // ELIMINAMOS LA PROPIEDAD "ubicacion"
                                 cupos: null,
                                 horarios: []
                             };
                         }
 
-                        // Añadir hora al grupo
                         asignaturasFlat[idMateria].gruposMap[idGrupo].horarios.push({
                             dia: obtenerDiaLetra(col),
                             inicio: inicio,
@@ -140,7 +116,6 @@ const AdaptadorSistemas = {
             }
         });
 
-        // Fusionar bloques de 50 minutos en clases continuas de 2 horas
         this.consolidarTodosLosHorarios(asignaturasFlat);
         return this.formatearJSONOficial(asignaturasFlat, nombreArchivo);
     },

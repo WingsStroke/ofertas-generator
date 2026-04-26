@@ -12,12 +12,9 @@ const AdaptadorAlimentos = {
 
             let semestreNum = indexHoja; 
 
-            // ==========================================
             // FASE 1: MEMORIZAR TABLA DERECHA (Docentes)
-            // ==========================================
             let baseDatosDerecha = [];
             
-            // Buscar dinámicamente en qué columnas están los datos (Por si las mueven)
             let colNombre = 7, colGrupo = 10, colDocente = 11;
             for(let c = 0; c < matriz[filaInicio].length; c++){
                 let txt = (matriz[filaInicio][c] || "").toString().toUpperCase();
@@ -40,15 +37,12 @@ const AdaptadorAlimentos = {
                 }
             }
 
-            // ==========================================
             // FASE 2: ESCANEAR CUADRÍCULA IZQUIERDA
-            // ==========================================
             for (let i = filaInicio + 1; i < matriz.length; i++) {
                 const fila = matriz[i];
                 let rangoHora = fila[0]; 
                 if (!rangoHora || typeof rangoHora !== 'string' || !rangoHora.includes("-")) continue;
 
-                // RELOJ AM/PM INTELIGENTE (El mismo que perfeccionamos en Sistemas)
                 let [strInicio, strFin] = rangoHora.split("-").map(h => h.trim().replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
                 let horaInicioRaw = parseInt(strInicio.split(":")[0]);
                 let minInicio = strInicio.split(":")[1] || "00";
@@ -69,20 +63,17 @@ const AdaptadorAlimentos = {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    // Separar por saltos de línea (Ej. cuando hay dos clases distintas en la misma hora)
                     const bloquesClase = celda.toString().split(/\n/);
 
                     bloquesClase.forEach(bloque => {
                         let textoLimpio = bloque.replace(/-/g, " ").replace(/\s+/g, " ").trim();
                         if (textoLimpio.length < 4 || textoLimpio.toLowerCase().includes("sugerido")) return;
 
-                        // Extraer el GRUPO (En alimentos siempre es Letra+Número, ej. A1, F2, D1)
                         let regexGrupos = /\b([A-Z][0-9])\b/g;
                         let gruposEncontrados = [...textoLimpio.matchAll(regexGrupos)].map(m => m[1]);
 
-                        if (gruposEncontrados.length === 0) gruposEncontrados = ["A1"]; // Fallback
+                        if (gruposEncontrados.length === 0) gruposEncontrados = ["A1"];
 
-                        // Extraer el NOMBRE BASE quitando los grupos
                         let nombreBase = textoLimpio;
                         gruposEncontrados.forEach(g => {
                             nombreBase = nombreBase.replace(new RegExp("\\b" + g + "\\b", "g"), "");
@@ -90,28 +81,23 @@ const AdaptadorAlimentos = {
                         nombreBase = nombreBase.trim();
                         if (nombreBase.length < 4) return;
 
-                        // ==========================================
                         // FASE 3: LA COLISIÓN (FUZZY MATCH)
-                        // ==========================================
                         gruposEncontrados.forEach(grupoStr => {
                             let nombreFinal = nombreBase;
                             let docenteFinal = "Por definir";
                             
-                            // Buscar en la tabla de la derecha
                             let matchDerecha = baseDatosDerecha.find(bd => {
                                 if (bd.grupo.toUpperCase() !== grupoStr.toUpperCase()) return false;
                                 
                                 let strIzq = normalizarID(nombreBase);
                                 let strDer = normalizarID(bd.nombre);
                                 
-                                // Evitar mezclar Teoría con Laboratorio si tienen profesores distintos
                                 if (strIzq.includes("laboratorio") && strDer.includes("teoria")) return false;
                                 if (strIzq.includes("teoria") && strDer.includes("laboratorio")) return false;
 
                                 if (strIzq === strDer) return true;
                                 if (strIzq.includes(strDer) || strDer.includes(strIzq)) return true;
                                 
-                                // Coincidencia por intersección de palabras clave
                                 let palabrasIzq = strIzq.split("_").filter(w => w.length > 3);
                                 let palabrasDer = strDer.split("_").filter(w => w.length > 3);
                                 let coincidencias = palabrasIzq.filter(w => palabrasDer.includes(w));
@@ -120,11 +106,10 @@ const AdaptadorAlimentos = {
                             });
 
                             if (matchDerecha) {
-                                nombreFinal = matchDerecha.nombre; // Usamos el nombre oficial limpio
+                                nombreFinal = matchDerecha.nombre; 
                                 docenteFinal = matchDerecha.docente;
                             }
 
-                            // Inyectar en el JSON (Reutilizando la lógica probada de Sistemas)
                             const idMateria = normalizarID(nombreFinal);
                             const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
 
@@ -136,7 +121,12 @@ const AdaptadorAlimentos = {
 
                             if (!asignaturasFlat[idMateria].gruposMap[idGrupo]) {
                                 asignaturasFlat[idMateria].gruposMap[idGrupo] = {
-                                    id: idGrupo, grupo: grupoStr, profesor: docenteFinal, ubicacion: "Ver docente", cupos: null, horarios: []
+                                    id: idGrupo, 
+                                    grupo: grupoStr, 
+                                    profesor: docenteFinal, 
+                                    // ELIMINAMOS LA PROPIEDAD "ubicacion"
+                                    cupos: null, 
+                                    horarios: []
                                 };
                             }
 
