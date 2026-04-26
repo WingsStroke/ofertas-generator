@@ -10,7 +10,7 @@ const AdaptadorAlimentos = {
             let filaInicio = matriz.findIndex(fila => fila[0] && fila[0].toString().toUpperCase().includes("HORA"));
             if (filaInicio === -1) return;
 
-            let semestreNum = indexHoja; 
+            let semestreNum = indexHoja + 1; 
 
             // FASE 1: MEMORIZAR TABLA DERECHA (Docentes)
             let baseDatosDerecha = [];

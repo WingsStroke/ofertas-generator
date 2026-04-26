@@ -10,7 +10,7 @@ const AdaptadorSistemas = {
             let filaInicio = matriz.findIndex(fila => fila[0] && fila[0].toString().toUpperCase().includes("HORA"));
             if (filaInicio === -1) return;
 
-            let semestreNum = indexHoja; 
+            let semestreNum = indexHoja + 1;
             
             for (let i = filaInicio + 1; i < matriz.length; i++) {
                 const fila = matriz[i];
