@@ -11,85 +11,98 @@ const AdaptadorSistemas = {
             if (filaInicio === -1) return;
 
             let semestreNum = indexHoja; 
-            let pasoMediodia = false;
-
+            
             for (let i = filaInicio + 1; i < matriz.length; i++) {
                 const fila = matriz[i];
                 let rangoHora = fila[0]; 
                 if (!rangoHora || typeof rangoHora !== 'string' || !rangoHora.includes("-")) continue;
 
                 // ==========================================
-                // 1. CONVERSIÓN INTELIGENTE AM/PM
+                // 1. CORRECCIÓN: RELOJ AM/PM INTELIGENTE
                 // ==========================================
-                let [strInicio, strFin] = rangoHora.split("-").map(h => h.replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
+                let [strInicio, strFin] = rangoHora.split("-").map(h => h.trim().replace(/\s+/g, "").replace(".", ":").toLowerCase().replace(/a\.m\.|p\.m\.|am|pm/g, "")); 
                 
                 let horaInicioRaw = parseInt(strInicio.split(":")[0]);
                 let minInicio = strInicio.split(":")[1] || "00";
                 let horaFinRaw = parseInt(strFin.split(":")[0]);
                 let minFin = strFin.split(":")[1] || "00";
 
-                // Si detectamos las 12, o hay un salto a las 1, 2, 3... es la tarde
-                if (horaInicioRaw === 12 || (horaInicioRaw >= 1 && horaInicioRaw <= 6)) pasoMediodia = true;
-
                 let horaInicio = horaInicioRaw;
                 let horaFin = horaFinRaw;
 
-                if (pasoMediodia && horaInicioRaw >= 1 && horaInicioRaw <= 11) horaInicio += 12;
-                if (horaFinRaw >= 1 && horaFinRaw <= 11 && (pasoMediodia || horaInicioRaw >= 10)) horaFin += 12;
+                // La regla de oro universitaria: 
+                // Si la hora dice 1, 2, 3, 4, 5, 6... SEGURO es de la tarde. (13, 14, 15...)
+                // Las clases matutinas siempre son 7, 8, 9, 10, 11, 12.
+                if (horaInicio >= 1 && horaInicio <= 6) horaInicio += 12;
+                if (horaFin >= 1 && horaFin <= 6) horaFin += 12;
 
                 let inicio = `${horaInicio.toString().padStart(2, '0')}:${minInicio}`;
                 let fin = `${horaFin.toString().padStart(2, '0')}:${minFin}`;
                 let jornada = horaInicio >= 18 ? "nocturna" : "diurna";
 
                 // ==========================================
-                // 2. EXTRACCIÓN DE CELDAS Y LIMPIEZA
+                // 2. EXTRACCIÓN Y LIMPIEZA DE CELDAS
                 // ==========================================
                 for (let col = 1; col <= 5; col++) {
                     const celda = fila[col];
                     if (!celda) continue;
 
-                    let textoCelda = celda.toString().replace(/\n/g, " ");
-                    // Separamos solo si hay 3 o más guiones seguidos (cuando hay múltiples materias)
-                    const bloquesClase = textoCelda.split(/-{3,}/);
+                    // Limpiamos la celda de saltos de línea y ruido visual
+                    let textoCelda = celda.toString()
+                        .replace(/\n/g, " ")
+                        .replace(/-{2,}/g, "---") // Normalizamos líneas punteadas
+                        .replace(/\s+/g, " "); // Quitamos espacios dobles
+                    
+                    // Separamos por el guion largo "---" que indica materias diferentes
+                    const bloquesClase = textoCelda.split("---");
 
                     bloquesClase.forEach(bloque => {
-                        let textoLimpio = bloque.replace(/\s+/g, " ").trim();
-                        if (textoLimpio.length < 5) return;
+                        let textoLimpio = bloque.trim();
+                        if (textoLimpio.length < 5 || textoLimpio.toLowerCase().includes("sugerido")) return;
 
-                        // Filtro de ruido: Ignoramos notas larguísimas de la administración
-                        if (textoLimpio.toLowerCase().includes("sugerido") || textoLimpio.split(" ").length > 12) return;
-                        
-                        // Limpiamos los textos basura anexados al final ("En este grupo se deben...")
+                        // Quitamos notas aclaratorias largas
                         textoLimpio = textoLimpio.split(/\. En este grupo|\(Sólo debe escoger/i)[0].trim();
 
                         let nombre = "";
-                        let grupoStr = "A1";
+                        let grupoStr = "A1"; // Valor por defecto
                         let docente = "Por definir";
 
-                        // Expresiones regulares para cazar la estructura de la materia
-                        let m1 = textoLimpio.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(?:\s*[-]*\s*(.*))?/i); // Ej: Materia (A1) - Profe
-                        let m2 = !m1 ? textoLimpio.match(/(.*?)\s*-\s*Grupo\s*([A-Z0-9]{1,3})(?:\s*[-]*\s*(.*))?/i) : null; // Ej: Materia - Grupo A1
-                        let m3 = !m1 && !m2 ? textoLimpio.match(/(.*?)\s*-\s*([A-Z][0-9]{1,2})(?:\s*[-]*\s*(.*))?/i) : null; // Ej: Materia - A1 - Profe
+                        // ==========================================
+                        // 3. CORRECCIÓN: REGEX UNIVERSAL PARA SISTEMAS
+                        // ==========================================
+                        // Buscar patrón (GRUPO). Ej: Cálculo Diferencial (A1) - Profesor
+                        let matchConParentesis = textoLimpio.match(/(.*?)\s*\(([A-Z0-9]{1,3})\)(.*)/i);
+                        
+                        // Buscar patrón - Grupo A1. Ej: Cálculo - Grupo A1 - Profesor
+                        let matchConGuion = !matchConParentesis ? textoLimpio.match(/(.*?)\s*-\s*Grupo\s*([A-Z0-9]{1,3})(.*)/i) : null;
 
-                        if (m1) {
-                            nombre = m1[1]; grupoStr = m1[2]; docente = m1[3] || "";
-                        } else if (m2) {
-                            nombre = m2[1]; grupoStr = m2[2]; docente = m2[3] || "";
-                        } else if (m3) {
-                            nombre = m3[1]; grupoStr = m3[2]; docente = m3[3] || "";
+                        if (matchConParentesis) {
+                            nombre = matchConParentesis[1];
+                            grupoStr = matchConParentesis[2];
+                            docente = matchConParentesis[3];
+                        } else if (matchConGuion) {
+                            nombre = matchConGuion[1];
+                            grupoStr = matchConGuion[2];
+                            docente = matchConGuion[3];
                         } else {
-                            // CASO 4 SALVAVIDAS: Materias sin grupo (Ej. "Gobernanza de TI - Javier Pinedo")
+                            // Materias sin grupo especificado (Ej. "Software Libre - Gabriel")
                             let partes = textoLimpio.split("-");
                             nombre = partes[0];
                             if (partes.length > 1) docente = partes.slice(1).join("-");
-                            grupoStr = "A1"; 
                         }
 
-                        nombre = nombre.replace(/^[-_]/g, "").trim();
-                        docente = docente.replace(/^-/, "").trim() || "Por definir";
+                        // Limpieza final de las variables extraídas
+                        nombre = nombre.replace(/^[-_]+|[-_]+$/g, "").trim();
+                        docente = docente.replace(/^[-_]+|[-_]+$/g, "").trim() || "Por definir";
+                        
+                        // CORRECCIÓN: Separar profesor de salón ("Docente X - Lab Y")
+                        let partesDocente = docente.split("-");
+                        docente = partesDocente[0].trim();
+                        let ubicacion = partesDocente.length > 1 ? partesDocente.slice(1).join("-").trim() : "Ver docente";
 
                         if (nombre.length < 4) return;
 
+                        // Generación de IDs (Usando función de utilidades)
                         const idMateria = normalizarID(nombre);
                         const idGrupo = `${idMateria}_${grupoStr.toLowerCase()}`;
 
@@ -109,12 +122,13 @@ const AdaptadorSistemas = {
                                 id: idGrupo,
                                 grupo: grupoStr,
                                 profesor: docente, 
-                                ubicacion: "Ver docente", 
+                                ubicacion: ubicacion, 
                                 cupos: null,
                                 horarios: []
                             };
                         }
 
+                        // Añadir hora al grupo
                         asignaturasFlat[idMateria].gruposMap[idGrupo].horarios.push({
                             dia: obtenerDiaLetra(col),
                             inicio: inicio,
@@ -126,11 +140,11 @@ const AdaptadorSistemas = {
             }
         });
 
+        // Fusionar bloques de 50 minutos en clases continuas de 2 horas
         this.consolidarTodosLosHorarios(asignaturasFlat);
         return this.formatearJSONOficial(asignaturasFlat, nombreArchivo);
     },
 
-    // ALGORITMO DE FUSIÓN DE HORAS CONTINUAS
     consolidarTodosLosHorarios: function(asignaturasFlat) {
         Object.values(asignaturasFlat).forEach(materia => {
             Object.values(materia.gruposMap).forEach(grupo => {
@@ -159,7 +173,6 @@ const AdaptadorSistemas = {
                     }
                     horariosConsolidados.push(actual);
                 }
-
                 grupo.horarios = horariosConsolidados;
             });
         });
